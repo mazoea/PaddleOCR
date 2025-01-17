@@ -28,7 +28,8 @@ class SimpleDataSet(Dataset):
         dataset_config = config[mode]['dataset']
         loader_config = config[mode]['loader']
 
-        self.delimiter = dataset_config.get('delimiter', '\t')
+        # !!!
+        self.delimiter = dataset_config.get('delimiter', ' ')
         label_file_list = dataset_config.pop('label_file_list')
         data_source_num = len(label_file_list)
         ratio_list = dataset_config.get("ratio_list", [1.0])
@@ -106,7 +107,8 @@ class SimpleDataSet(Dataset):
             substr = data_line.strip("\n").split(self.delimiter)
             file_name = substr[0]
             label = substr[1]
-            img_path = os.path.join(self.data_dir, file_name)
+            # img_path = os.path.join(self.data_dir, file_name)
+            img_path = substr[0]
             data = {'img_path': img_path, 'label': label}
             if not os.path.exists(img_path):
                 raise Exception("{} does not exist!".format(img_path))

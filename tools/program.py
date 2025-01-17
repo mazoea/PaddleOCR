@@ -395,6 +395,8 @@ def preprocess(is_train=False):
 
     # check if set use_gpu=True in paddlepaddle cpu version
     use_gpu = config['Global']['use_gpu']
+    # !!!
+    use_gpu = False
     check_gpu(use_gpu)
 
     alg = config['Architecture']['algorithm']
