@@ -224,7 +224,7 @@ def train(
             if not eval_batch_epoch
             else step_pre_epoch * eval_batch_epoch
         )
-        if len(valid_dataloader) == 0:
+        if len(valid_dataloader or []) == 0:
             logger.info(
                 "No Images in eval dataset, evaluation during training "
                 "will be disabled"
