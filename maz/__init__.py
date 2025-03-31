@@ -59,16 +59,17 @@ class MazDataset:
             gt_score = d["gt"]
             confs = d["confs"]
             gt = d["gttext"]
+            img_id = d["img"]
             if "img_data" not in d:
                 raise NotImplementedError("img_data not in json")
             buf = base64.b64decode(d["img_data"])
-            row = (gt, buf, gt_score[2])
+            row = (gt, buf, gt_score[2], img_id)
             ret.append(row)
         return ret
 
     def __getitem__(self, idx):
-        gt, buf, paddle_score = self.data[idx]
-        data = {"image": buf, "label": gt, "ext_data": []}
+        gt, buf, paddle_score, img_id = self.data[idx]
+        data = {"image": buf, "label": gt, "img_path": img_id, "ext_data": []}
         # in train, operator calls np.frombuffer(img, dtype="uint8")
         outs = self.transform(data, self.ops)
         # e.g., max text length exceeded - select random one

@@ -43,7 +43,9 @@ class RecMetric(object):
         correct_num = 0
         all_num = 0
         norm_edit_dis = 0.0
+        diffs = []
         for (pred, pred_conf), (target, _) in zip(preds, labels):
+            diffs.append((None, None))
             if self.ignore_space:
                 pred = pred.replace(" ", "")
                 target = target.replace(" ", "")
@@ -55,16 +57,16 @@ class RecMetric(object):
                 correct_num += 1
             else:
                 # _logger.info(f"pred: {pred}, target: {target}")
-                print(f"pred: {pred}, target: {target}")
-                pass
-
+                diffs[-1] = (pred, target)
             all_num += 1
+
         self.correct_num += correct_num
         self.all_num += all_num
         self.norm_edit_dis += norm_edit_dis
         return {
             "acc": correct_num / (all_num + self.eps),
             "norm_edit_dis": 1 - norm_edit_dis / (all_num + self.eps),
+            "diffs": diffs,
         }
 
     def get_metric(self):

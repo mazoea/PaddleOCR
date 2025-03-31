@@ -18,8 +18,13 @@ from __future__ import print_function
 
 import os
 import sys
+import json
+from collections import defaultdict
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
+
+from numpy.distutils.misc_util import default_config_dict
+
 sys.path.insert(0, __dir__)
 sys.path.insert(0, os.path.abspath(os.path.join(__dir__, "..")))
 
@@ -169,6 +174,20 @@ def main():
         amp_level,
         amp_custom_black_list,
     )
+
+    if "diffs" in metric:
+        # count diffs
+        cnter = defaultdict(int)
+        for pred, target in metric["diffs"]:
+            k = f"{pred} -> {target}"
+            cnter[k] += 1
+        # sort by count
+        metric["diffs-count"] = sorted(cnter.items(), key=lambda x: x[1], reverse=True)
+        with open('eval.diffs.json', 'w') as fout:
+            json.dump(metric, fout, indent=4)
+        del metric["diffs"]
+        del metric["diffs-count"]
+
     logger.info("metric eval ***************")
     for k, v in metric.items():
         logger.info("{}:{}".format(k, v))

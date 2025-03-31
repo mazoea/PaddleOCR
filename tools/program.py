@@ -644,6 +644,7 @@ def eval(
     amp_dtype="float16",
 ):
     model.eval()
+    diffs = []
     with paddle.no_grad():
         total_frame = 0.0
         total_time = 0.0
@@ -724,7 +725,9 @@ def eval(
                 eval_class(post_result[0], post_result[1], epoch_reset=(idx == 0))
             else:
                 post_result = post_process_class(preds, batch_numpy[1])
-                eval_class(post_result, batch_numpy)
+                d = eval_class(post_result, batch_numpy)
+                if "diffs" in d:
+                    diffs += [x for x in d["diffs"] if x[0] != None]
 
             pbar.update(1)
             total_frame += len(images)
@@ -739,6 +742,7 @@ def eval(
         metric["fps"] = total_frame / total_time
     else:
         metric["fps"] = 0  # or set to a fallback value
+    metric['diffs'] = diffs
     return metric
 
 
