@@ -4,7 +4,10 @@ import base64
 import os
 import glob
 import orjson
+import logging
 import tqdm
+
+_logger = logging.getLogger(__name__)
 
 class MazDataset:
     json_glob = "__woec*.json"
@@ -62,6 +65,9 @@ class MazDataset:
             img_id = d["img"]
             if "img_data" not in d:
                 raise NotImplementedError("img_data not in json")
+            if d["img_data"] is None:
+                _logger.critical(f"Missing img_data in [{d}]")
+                continue
             buf = base64.b64decode(d["img_data"])
             row = (gt, buf, gt_score[2], img_id)
             ret.append(row)

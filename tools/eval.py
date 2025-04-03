@@ -23,8 +23,6 @@ from collections import defaultdict
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 
-from numpy.distutils.misc_util import default_config_dict
-
 sys.path.insert(0, __dir__)
 sys.path.insert(0, os.path.abspath(os.path.join(__dir__, "..")))
 
@@ -157,7 +155,7 @@ def main():
     best_model_dict = load_model(
         config, model, model_type=config["Architecture"]["model_type"]
     )
-    if len(best_model_dict):
+    if len(best_model_dict) and config["Eval"].get("silent", True) == False:
         logger.info("metric in ckpt ***************")
         for k, v in best_model_dict.items():
             logger.info("{}:{}".format(k, v))
@@ -173,9 +171,15 @@ def main():
         scaler,
         amp_level,
         amp_custom_black_list,
+        silent=True
     )
 
     if "diffs" in metric:
+        dataset_name = os.path.basename(config['Eval']['dataset']['data_dir']).replace(".PAD.FILTERED.json", "")
+        checkpoints = config.get("checkpoints", "").split("/")
+        checkpoint_name = "UNK"
+        if len(checkpoints) == 3:
+            checkpoint_name = checkpoints[1]
         # count diffs
         cnter = defaultdict(int)
         for pred, target in metric["diffs"]:
@@ -183,14 +187,16 @@ def main():
             cnter[k] += 1
         # sort by count
         metric["diffs-count"] = sorted(cnter.items(), key=lambda x: x[1], reverse=True)
-        with open('eval.diffs.json', 'w') as fout:
+        eval_file_str = f'eval.diffs.{checkpoint_name}__{dataset_name}.json'
+        with open(eval_file_str, 'w') as fout:
             json.dump(metric, fout, indent=4)
         del metric["diffs"]
         del metric["diffs-count"]
 
-    logger.info("metric eval ***************")
+    logger.critical(f"metric eval *************** {config['Eval']['dataset']['data_dir']}")
     for k, v in metric.items():
-        logger.info("{}:{}".format(k, v))
+        msg = "{}:{}".format(k, v)
+        logger.info(msg) if k != "acc" else logger.critical(msg)
 
 
 if __name__ == "__main__":

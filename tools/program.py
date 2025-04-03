@@ -642,6 +642,7 @@ def eval(
     amp_custom_black_list=[],
     amp_custom_white_list=[],
     amp_dtype="float16",
+    silent=False,
 ):
     model.eval()
     diffs = []
@@ -649,8 +650,8 @@ def eval(
         total_frame = 0.0
         total_time = 0.0
         pbar = tqdm(
-            total=len(valid_dataloader), desc="eval model:", position=0, leave=True
-        )
+            total=len(valid_dataloader), desc="eval model", position=0, leave=True
+        ) if not silent else None
         max_iter = (
             len(valid_dataloader) - 1
             if platform.system() == "Windows"
@@ -729,13 +730,15 @@ def eval(
                 if "diffs" in d:
                     diffs += [x for x in d["diffs"] if x[0] != None]
 
-            pbar.update(1)
+            if pbar:
+                pbar.update(1)
             total_frame += len(images)
             sum_images += 1
         # Get final metric，eg. acc or hmean
         metric = eval_class.get_metric()
 
-    pbar.close()
+    if pbar:
+        pbar.close()
     model.train()
     # Avoid ZeroDivisionError
     if total_time > 0:
@@ -915,12 +918,16 @@ def preprocess(is_train=False):
         loggers.append(log_writer)
     else:
         log_writer = None
-    print_dict(config, logger)
+
+    should_print = is_train is True or not config.get("Eval", {}).get("silent", True)
+    if should_print:
+        print_dict(config, logger)
 
     if loggers:
         log_writer = Loggers(loggers)
     else:
         log_writer = None
 
-    logger.info("train with paddle {} and device {}".format(paddle.__version__, device))
+    if should_print:
+        logger.info("train with paddle {} and device {}".format(paddle.__version__, device))
     return config, device, logger, log_writer

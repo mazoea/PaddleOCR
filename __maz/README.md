@@ -18,17 +18,9 @@ See https://github.com/mazoea/PaddleOCR/pull/2
    python tools/infer_rec.py -c ./__maz/en_PP-OCRv3_rec_train/en_PP-OCRv3_rec.yml -o Global.checkpoints=./output/v3_en_mobile/best_accuracy Global.infer_img=c:/data/woec_dataset/multi/IBedits/000000_pad/Acid)_007b404c037049c7862071900aa85a09_20168.in.pad-3.png_020168.pad-3.png Global.use_gpu=False
    ```
 7. Eval orig vs finetuned
-   ```
-   python tools/eval.py -c ./__maz/en_PP-OCRv3_rec_train/en_PP-OCRv3_rec.yml -o Global.checkpoints=./__maz/en_PP-OCRv3_rec_train/best_accuracy
-   python tools/eval.py -c ./__maz/en_PP-OCRv3_rec_train/en_PP-OCRv3_rec.yml -o Global.checkpoints=./output/v3_en_mobile/best_accuracy
-   
-   python tools/eval.py -c ./__maz/eval/eval.IBedits.yml -o Global.checkpoints=./__maz/en_PP-OCRv3_rec_train/best_accuracy
-   python tools/eval.py -c ./__maz/eval/eval.IBedits.yml -o Global.checkpoints=./output/v3_en_mobile/best_accuracy
-
-   python tools/eval.py -c ./__maz/eval/eval.IBsimple.yml -o Global.checkpoints=./__maz/en_PP-OCRv3_rec_train/best_accuracy
-   python tools/eval.py -c ./__maz/eval/eval.IBsimple.yml -o Global.checkpoints=./output/v3_en_mobile/best_accuracy
-   ```
-6. Export model
+   see `MAZtest.bat`
+6. 
+7. Export model
    ```
    python tools/export_model.py -c ./__maz/en_PP-OCRv3_rec_train/en_PP-OCRv3_rec.yml -o Global.pretrained_model=./output/v3_en_mobile/best_accuracy Global.save_inference_dir=./output/v3_en_mobile/inference-2/
    ```

@@ -150,7 +150,7 @@ def load_model(config, model, optimizer=None, model_type="det"):
             best_model_dict["acc"] = 0.0
             if "epoch" in states_dict:
                 best_model_dict["start_epoch"] = states_dict["epoch"] + 1
-        logger.info("resume from {}".format(checkpoints))
+        logger.critical("resume from {}".format(checkpoints))
     elif pretrained_model:
         is_float16 = load_pretrained_params(model, pretrained_model)
     else:
