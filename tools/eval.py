@@ -187,7 +187,8 @@ def main():
             cnter[k] += 1
         # sort by count
         metric["diffs-count"] = sorted(cnter.items(), key=lambda x: x[1], reverse=True)
-        eval_file_str = f'eval.diffs.{checkpoint_name}__{dataset_name}.json'
+        eval_file_str = f'inference_results/eval.diffs.{checkpoint_name}__{dataset_name}.json'
+        os.makedirs(os.path.dirname(eval_file_str), exist_ok=True)
         with open(eval_file_str, 'w') as fout:
             json.dump(metric, fout, indent=4)
         del metric["diffs"]

@@ -40,6 +40,10 @@ class MazDataset:
                 logger.critical(f"Missing woec json files in [{dt_folder}]")
                 sys.exit(1)
             for woec_json in woec_jsons:
+                for excl in dataset_config.get("data_dir_exclude", []):
+                    if excl in woec_json:
+                        logger.info(f"Skipping [{woec_json}] due to exclusion [data_dir_exclude]")
+                        continue
                 self.data += self.load_from_json(woec_json)
 
         random.seed(self.seed)

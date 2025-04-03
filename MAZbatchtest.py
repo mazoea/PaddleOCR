@@ -7,6 +7,7 @@ import logging
 env= {
     "log_file": "__maz/__logs/eval_results.log",
     "test_datasets": [
+        "eval.ICDAR2013.yml",
         "eval.IBSimple.yml",
         "eval.Invoices.yml",
         "eval.funSD.yml",
