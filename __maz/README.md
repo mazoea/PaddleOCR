@@ -64,7 +64,14 @@ Add new project->Settings->Labeling Interface->Code
                rows="2"
                placeholder="Recognized Text"
                />
-     
+
+<Header value="GT remove"/>
+    <Choices name="gt_check" toName="image"
+             choice="single" showInLine="true">
+    <Choice value="remove"/>
+    <Choice value="ok"/>
+</Choices>
+
      <Labels name="paddle" toName="text-paddle"><Label value="Paddle" /></Labels>
      <Text name="text-paddle" value="$paddletext" granularity="word" highlightColor="#ff0000" />
    
