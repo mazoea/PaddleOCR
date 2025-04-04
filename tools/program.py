@@ -495,6 +495,7 @@ def train(
                     amp_custom_black_list=amp_custom_black_list,
                     amp_custom_white_list=amp_custom_white_list,
                     amp_dtype=amp_dtype,
+                    return_diffs=False,
                 )
                 cur_metric_str = "cur metric, {}".format(
                     ", ".join(["{}: {}".format(k, v) for k, v in cur_metric.items()])
@@ -643,6 +644,7 @@ def eval(
     amp_custom_white_list=[],
     amp_dtype="float16",
     silent=False,
+    return_diffs=True,
 ):
     model.eval()
     diffs = []
@@ -745,7 +747,8 @@ def eval(
         metric["fps"] = total_frame / total_time
     else:
         metric["fps"] = 0  # or set to a fallback value
-    metric['diffs'] = diffs
+    if return_diffs:
+        metric['diffs'] = diffs
     return metric
 
 

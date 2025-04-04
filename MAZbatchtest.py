@@ -7,6 +7,7 @@ import logging
 env= {
     "log_file": "__maz/__logs/eval_results.log",
     "test_datasets": [
+        "eval.DOCS-BIO.yml",
         "eval.ICDAR2013.yml",
         "eval.IBSimple.yml",
         "eval.Invoices.yml",
@@ -40,7 +41,8 @@ def run_eval(model, config):
     cmd = [
         "python", "tools/eval.py",
         "-c", f"./__maz/eval/{config}",
-        "-o", f"Global.checkpoints={model}"
+        "-o", f"Global.checkpoints={model}",
+#        "Global.use_gpu=false"
     ]
     try:
         env = os.environ.copy()
