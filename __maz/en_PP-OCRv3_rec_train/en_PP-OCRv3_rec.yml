@@ -1,12 +1,12 @@
 Global:
   debug: false
   use_gpu: true
-  epoch_num: 500
+  epoch_num: 200
   log_smooth_window: 20
   print_batch_step: 10
   save_model_dir: ./output/v3_en_mobile_2024.04.02
-  save_epoch_step: 3
-  eval_batch_step: [0, 1000]
+  save_epoch_step: 1
+  eval_batch_step: [0, 150]
   cal_metric_during_train: true
   pretrained_model:
   checkpoints:
@@ -28,11 +28,16 @@ Optimizer:
   beta2: 0.999
   lr:
     name: Cosine
-    learning_rate: 0.0001
-    warmup_epoch: 5
+    learning_rate: 0.001
+    warmup_epoch: 0
+#  lr:
+#    name: Piecewise
+#    decay_epochs : [700]
+#    values : [0.001, 0.0001]
+#    warmup_epoch: 5
   regularizer:
     name: L2
-    factor: 3.0e-04
+    factor: 1.0e-04
 
 
 Architecture:
@@ -80,18 +85,20 @@ Train:
     name: MazDataset
     # data_dir: c:/data/woec_dataset/multi/__woec.IBedits.json.PAD.FILTERED.json
     data_dir: c:/data/woec_dataset/multi/
-    data_dir_exclude:
-      - __woec.ICDAR2013.json.PAD.FILTERED.json
     ratio: [0., 1.]
+    max_limit_per_dataset:
+      "*": 250000
+    dynamic_cache: true
+    dynamic_cache_workers: 2
+    dynamic_mode_verbose: 1
+    dynamic_cache_prefetch: 2048
     ext_op_transform_idx: 1
-    label_file_list:
-    - ./train_data/train_list.txt
     transforms:
     - DecodeImage:
         img_mode: BGR
         channel_first: false
     - RecConAug:
-        prob: 0.5
+        prob: 0.15
         ext_data_num: 2
         image_shape: [48, 320, 3]
         max_text_length: *max_text_length
@@ -107,17 +114,30 @@ Train:
         - length
         - valid_ratio
   loader:
-    shuffle: true
-    batch_size_per_card: 64
+    # shuffle: true
+    # use false if dynamic cache is enabled
+    shuffle: false
+    batch_size_per_card: 128
     drop_last: true
-    num_workers: 0
+    num_workers: 0  # not supported on windows
 
 Eval:
   dataset:
     name: MazDataset
-    data_dir: c:/data/woec_dataset/multi/__woec.IBedits.json.PAD.FILTERED.json
-    # data_dir: c:/data/woec_dataset/multi/__woec.IB-simple.json.PAD.FILTERED.json
+#    data_dir: c:/data/woec_dataset/multi/__woec.funSD.json.PAD.FILTERED.json
+    # data_dir: c:/data/woec_dataset/multi/__woec.IBedits.json.PAD.FILTERED.json
+    # data_dir: c:/data/woec_dataset/multi/__woec.ICDAR2013.json.PAD.FILTERED.json
+    data_dir: c:/data/woec_dataset/multi/
+    data_dir_exclude:
+      - __woec.ICDAR2013.json.PAD.FILTERED.json
     ratio: [0.0, 1.0]
+    dynamic_cache: true
+    dynamic_cache_workers: 1
+    dynamic_mode_verbose: 0
+    dynamic_cache_prefetch: 8196
+    max_limit_per_dataset:
+      "*": 5000
+      "__woec.IBedits.json.PAD.FILTERED.json": 20000
     transforms:
     - DecodeImage:
         img_mode: BGR
@@ -135,5 +155,5 @@ Eval:
   loader:
     shuffle: false
     drop_last: false
-    batch_size_per_card: 128
+    batch_size_per_card: 64
     num_workers: 0

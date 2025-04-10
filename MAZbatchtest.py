@@ -1,6 +1,20 @@
+"""
+| Dataset          | en_PP-OCRv3_rec_train  | v3_en_mobile_2024.04.02 |
+|------------------|-----------------------:|------------------------:|
+| DOCS-BIO         | 0.9650                 | 0.9470                  |
+| ICDAR2013        | 0.9948                 | 0.9375                  |
+| IBSimple         | 0.9483                 | 0.9894                  |
+| Invoices         | 0.9899                 | 0.9941                  |
+| funSD            | 0.9887                 | 0.9761                  |
+| xFund            | 0.9603                 | 0.9882                  |
+| IBedits          | 0.8061                 | 0.9719                  |
+| cord-v2          | 0.8233                 | 0.9588                  |
+| genText          | 0.5077                 | 0.9726                  |
+"""
+
 import os
+import re
 import subprocess
-import datetime
 import argparse
 import logging
 
@@ -35,6 +49,33 @@ def setup_logger(log_file: str):
 
 setup_logger(env["log_file"])
 _logger = logging.getLogger()
+_logger.warning(f"Logging to {env['log_file']}")
+
+
+def parse_table_from_comment(script_path: str):
+    with open(script_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Match the table and extract all lines
+    match = re.search(r'"""\s*(\| Dataset\s*\|.*?\n\|[-|:\s]+\n(?:\|.*\n)+?)"""', content, re.DOTALL)
+    if not match:
+        raise ValueError("Could not find the markdown table in the comment.")
+
+    lines = match.group(1).strip().splitlines()
+    headers = [cell.strip() for cell in lines[0].strip().split("|")[1:-1]]
+
+    rows = {}
+    for line in lines[2:]:  # Skip header and separator lines
+        cells = [cell.strip() for cell in line.strip().split("|")[1:-1]]
+        if len(cells) >= 3:
+            dataset = cells[0]
+            scores = cells[1:]
+            rows[dataset] = [float(x) for x in scores]
+
+    return {
+        "header": headers,
+        "acc": rows
+    }
 
 
 def run_eval(model, config):
@@ -48,18 +89,56 @@ def run_eval(model, config):
         env = os.environ.copy()
         env["GLOG_minloglevel"] = "2"
 
-        result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            env=env,
+            encoding="utf-8",
+        )
 
-        logging.warning(f"Config: {config} | Model: {model}")
+        # logging.warning(f"Config: {config} | Model: {model}")
         logging.debug(result.stdout)
         logging.debug(result.stderr)
 
         for line in result.stdout.splitlines():
             if "acc:" in line.lower():
-                logging.warning(f"[{config:20s} | {model:60s}] {line}")
+                match = re.search(r'acc:\s*([0-9.]+)', line.lower())
+                if match:
+                    return float(match.group(1))
 
     except Exception as e:
         logging.error(f"Error running eval for {config} and {model}: {e}")
+
+    return -100.0
+
+
+def get_res_tag(orig_score, model1_acc, model2_acc) -> str:
+    if "?" in (orig_score, model1_acc, model2_acc):
+        return "MISSING"
+
+    try:
+        o = round(float(orig_score), 2)
+        m1 = round(float(model1_acc), 2)
+        m2 = round(float(model2_acc), 2)
+
+        if m2 > max(o, m1):
+            result = "BEST"
+        elif m2 < min(o, m1):
+            result = "WORST"
+        elif m2 == o or m2 == m1:
+            result = "EQUAL"
+        elif m2 > o:
+            result = "IMPROVED from baseline"
+        elif m2 > m1:
+            result = "IMPROVED from model1"
+        else:
+            result = "WORSE"
+    except Exception:
+        result = "?"
+
+    return result
+
 
 def main():
     parser = argparse.ArgumentParser(description="Run evaluation with specified models.")
@@ -69,10 +148,21 @@ def main():
     args = parser.parse_args()
     _logger.warning(f"Starting evaluation with: {args}")
 
+    baseline_d = parse_table_from_comment(__file__)
+    header_msg = "|" .join(f' {x:26s} ' for x in baseline_d["header"])
+    _logger.warning(f"|{header_msg}| {args.model2}")
+
     for config in env["test_datasets"]:
-        logging.warning(f"====")
-        run_eval(args.model1, config)
-        run_eval(args.model2, config)
+        dataset_name = os.path.basename(config).split(".")[1]
+        orig_score, model1_acc = baseline_d["acc"].get(dataset_name, "?")
+        # logging.warning(f"====")
+        # run_eval(args.model1, config)
+        model2_acc = run_eval(args.model2, config)
+
+        # based on the other, print out the result BEST, WORST, ...
+        result = get_res_tag(orig_score, model1_acc, model2_acc)
+        _logger.warning(f"| {dataset_name:26s} | {str(orig_score):26s} | {str(model1_acc):26s} | {model2_acc:6.4f} - {result}")
+
 
 if __name__ == "__main__":
     main()

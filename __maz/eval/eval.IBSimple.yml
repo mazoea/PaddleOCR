@@ -110,6 +110,7 @@ Train:
     num_workers: 0
 
 Eval:
+  silent: true
   dataset:
     name: MazDataset
     data_dir: c:/data/woec_dataset/multi/__woec.IB-simple.json.PAD.FILTERED.json
@@ -131,5 +132,5 @@ Eval:
   loader:
     shuffle: false
     drop_last: false
-    batch_size_per_card: 128
+    batch_size_per_card: 32
     num_workers: 0

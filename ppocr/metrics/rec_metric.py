@@ -45,7 +45,6 @@ class RecMetric(object):
         norm_edit_dis = 0.0
         diffs = []
         for (pred, pred_conf), (target, _) in zip(preds, labels):
-            diffs.append((None, None))
             if self.ignore_space:
                 pred = pred.replace(" ", "")
                 target = target.replace(" ", "")
@@ -55,9 +54,7 @@ class RecMetric(object):
             norm_edit_dis += Levenshtein.normalized_distance(pred, target)
             if pred == target:
                 correct_num += 1
-            else:
-                # _logger.info(f"pred: {pred}, target: {target}")
-                diffs[-1] = (pred, target)
+            diffs.append((pred, target, pred_conf))
             all_num += 1
 
         self.correct_num += correct_num

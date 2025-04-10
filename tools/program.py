@@ -16,6 +16,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import logging
 import os
 import gc
 import sys
@@ -495,6 +496,7 @@ def train(
                     amp_custom_black_list=amp_custom_black_list,
                     amp_custom_white_list=amp_custom_white_list,
                     amp_dtype=amp_dtype,
+                    silent=True,
                     return_diffs=False,
                 )
                 cur_metric_str = "cur metric, {}".format(
@@ -748,7 +750,7 @@ def eval(
     else:
         metric["fps"] = 0  # or set to a fallback value
     if return_diffs:
-        metric['diffs'] = diffs
+        metric["diffs"] = diffs
     return metric
 
 
@@ -812,6 +814,7 @@ def preprocess(is_train=False):
     profile_dic = {"profiler_options": FLAGS.profiler_options}
     config = merge_config(config, profile_dic)
 
+    log_level = logging.DEBUG
     if is_train:
         # save_config
         save_model_dir = config["Global"]["save_model_dir"]
@@ -819,11 +822,12 @@ def preprocess(is_train=False):
         with open(os.path.join(save_model_dir, "config.yml"), "w") as f:
             yaml.dump(dict(config), f, default_flow_style=False, sort_keys=False)
         log_file = "{}/train.log".format(save_model_dir)
+        log_level = logging.INFO
     else:
         log_file = None
 
     log_ranks = config["Global"].get("log_ranks", "0")
-    logger = get_logger(log_file=log_file, log_ranks=log_ranks)
+    logger = get_logger(log_file=log_file, log_level=log_level, log_ranks=log_ranks)
 
     # check if set use_gpu=True in paddlepaddle cpu version
     use_gpu = config["Global"].get("use_gpu", False)
