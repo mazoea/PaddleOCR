@@ -12,6 +12,16 @@ import orjson
 import tqdm
 
 
+def load_pkl(logger, cache_path: str):
+    logger.info(f"Loading static cache from [{cache_path}]")
+    s = time.time()
+    with open(cache_path, 'rb') as fin:
+        data = joblib.load(fin)
+    logger.info(
+        f"Loaded static cache from [{cache_path}] with {len(data)} samples in [{time.time() - s:.2f}] seconds")
+    return data
+
+
 class MazDataset:
     json_glob = "__woec*.json"
 
@@ -27,6 +37,9 @@ class MazDataset:
         dataset_config = config[mode]["dataset"]
         self.static_mode_load = dataset_config.get("static_mode_load", False)
         self.static_mode_save = dataset_config.get("static_mode_save", False)
+        self.static_mode_save_final = dataset_config.get("static_mode_save_final", None)
+        self.shuffle = True
+        self.ratio = dataset_config.get("ratio", None)
         self.dynamic_cache = dataset_config.get("dynamic_cache", False)
         if self.dynamic_cache and (self.static_mode_save or self.static_mode_load):
             self.logger.critical("Static mode and dynamic cache cannot be used together")
@@ -41,6 +54,13 @@ class MazDataset:
         self.data = []
         self._dcache = {}
         self._dcache_hit = [0, 0]
+
+        # special case
+        if self.static_mode_save_final and os.path.exists(self.static_mode_save_final):
+            self.data = load_pkl(self.logger, self.static_mode_save_final)
+            self.data_dir = []
+            self.shuffle = False
+            self.ratio = None
 
         for dt_folder in self.data_dir:
             if os.path.isfile(dt_folder) and dt_folder.endswith(".json"):
@@ -61,22 +81,21 @@ class MazDataset:
 
                 data = []
 
-                cache_path = f"{woec_json}.paddle.pkl"
+                cache_suffix = f".paddle.{self.mode.upper()}.pkl"
+                cache_path = f"{woec_json}{cache_suffix}"
                 if self.static_mode_load:
                     if not os.path.exists(cache_path):
                         if "static_alt_data_dir" in dataset_config:
                             alt_cache_path = os.path.join(
                                 dataset_config["static_alt_data_dir"],
-                                os.path.basename(woec_json) + ".paddle.pkl",
+                                str(os.path.basename(woec_json) + {cache_suffix}),
                             )
                             if os.path.exists(alt_cache_path):
                                 cache_path = alt_cache_path
                     if os.path.exists(cache_path):
-                        self.logger.info(f"Loading static cache from [{cache_path}]")
-                        s = time.time()
-                        with open(cache_path, 'rb') as fin:
-                            data = joblib.load(fin)
-                        self.logger.info(f"Loaded static cache from [{cache_path}] with {len(data)} samples in [{time.time() - s:.2f}] seconds")
+                        data = load_pkl(self.logger, cache_path)
+                    else:
+                        self.logger.warning(f"Static cache not found in [{cache_path}]")
 
                 if len(data) == 0:
                     # load dataset
@@ -101,13 +120,22 @@ class MazDataset:
                 # finally, add it
                 self.data += data
 
-        random.seed(self.seed)
-        random.shuffle(self.data)
-        if dataset_config.get("ratio", None) is not None:
-            s, e = dataset_config["ratio"]
+        if self.shuffle:
+            random.seed(self.seed)
+            random.shuffle(self.data)
+        if self.ratio:
+            s, e = self.ratio
             s = int(s * len(self.data))
             e = int(e * len(self.data))
             self.data = self.data[s:e]
+
+        if self.static_mode_save_final is not None and not os.path.exists(self.static_mode_save_final):
+            self.logger.warning(f"Static mode save final path [{self.static_mode_save_final}] does not exist, saving to it")
+            max_workers = dataset_config.get("static_max_workers", 8)
+            data = self.prepare_for_train(self.data, max_workers=max_workers)
+            joblib.dump(data, self.static_mode_save_final)
+            self.logger.info(f"Saved static cache to [{self.static_mode_save_final}]")
+            sys.exit(0)
 
         self._last_idx = -1
         self.logger.info(f"Ratio: {dataset_config.get('ratio', None)}, final size: [{len(self)}]")
@@ -134,6 +162,9 @@ class MazDataset:
     def _safe_process_row(self, idx_row):
         idx, row = idx_row
         try:
+            # already done - can happen with static and static final combined
+            if not isinstance(row[0], str):
+                return idx, row
             outs = self.row2outs(row)
             if outs is None:
                 self.logger.debug(f"Transform failed for [{row[0]}]")

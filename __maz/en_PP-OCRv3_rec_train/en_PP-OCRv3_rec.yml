@@ -88,10 +88,11 @@ Train:
     ratio: [0., 1.]
     max_limit_per_dataset:
       "*": 250000
-    dynamic_cache: true
-    dynamic_cache_workers: 2
-    dynamic_mode_verbose: 1
-    dynamic_cache_prefetch: 2048
+    static_mode_save_final: c:/data/woec_dataset/multi/all-paddle.TRAIN.pkl
+#    dynamic_cache: true
+#    dynamic_cache_workers: 2
+#    dynamic_mode_verbose: 1
+#    dynamic_cache_prefetch: 2048
     ext_op_transform_idx: 1
     transforms:
     - DecodeImage:
@@ -131,13 +132,14 @@ Eval:
     data_dir_exclude:
       - __woec.ICDAR2013.json.PAD.FILTERED.json
     ratio: [0.0, 1.0]
-    dynamic_cache: true
-    dynamic_cache_workers: 1
-    dynamic_mode_verbose: 0
-    dynamic_cache_prefetch: 8196
+    static_mode_save_final: c:/data/woec_dataset/multi/all-paddle.EVAL.pkl
+#    dynamic_cache: true
+#    dynamic_cache_workers: 1
+#    dynamic_mode_verbose: 0
+#    dynamic_cache_prefetch: 8196
     max_limit_per_dataset:
-      "*": 5000
-      "__woec.IBedits.json.PAD.FILTERED.json": 20000
+      "*": 2500
+      "__woec.IBedits.json.PAD.FILTERED.json": 10000
     transforms:
     - DecodeImage:
         img_mode: BGR

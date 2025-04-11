@@ -113,6 +113,9 @@ Eval:
   dataset:
     name: MazDataset
     data_dir: c:/data/woec_dataset/multi/__woec.IBedits.json.PAD.FILTERED.json
+    # static_max_workers: 4
+    static_mode_load: true
+    # static_mode_save: true
     ratio: [0.0, 1.0]
     transforms:
     - DecodeImage:
@@ -131,5 +134,5 @@ Eval:
   loader:
     shuffle: false
     drop_last: false
-    batch_size_per_card: 256
+    batch_size_per_card: 128
     num_workers: 0

@@ -540,6 +540,7 @@ def train(
                         best_model_dict=best_model_dict,
                         epoch=epoch,
                         global_step=global_step,
+                        metric=cur_metric[main_indicator],
                     )
                 best_str = "best metric, {}".format(
                     ", ".join(

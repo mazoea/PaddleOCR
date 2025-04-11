@@ -17,6 +17,7 @@ import re
 import subprocess
 import argparse
 import logging
+import time
 
 env= {
     "log_file": "__maz/__logs/eval_results.log",
@@ -24,10 +25,10 @@ env= {
         "eval.DOCS-BIO.yml",
         "eval.ICDAR2013.yml",
         "eval.IBSimple.yml",
+        "eval.IBedits.yml",
         "eval.Invoices.yml",
         "eval.funSD.yml",
         "eval.xFund.yml",
-        "eval.IBedits.yml",
         "eval.cord-v2.yml",
         "eval.genText.yml",
     ]
@@ -89,6 +90,8 @@ def run_eval(model, config):
         env = os.environ.copy()
         env["GLOG_minloglevel"] = "2"
 
+        # print(" ".join(cmd))
+
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -126,12 +129,14 @@ def get_res_tag(orig_score, model1_acc, model2_acc) -> str:
             result = "BEST"
         elif m2 < min(o, m1):
             result = "WORST"
-        elif m2 == o or m2 == m1:
-            result = "EQUAL"
+        elif m2 == m1:
+            result = "EQUAL-M1"
+        elif m2 == o:
+            result = "EQUAL-BASE"
         elif m2 > o:
-            result = "IMPROVED from baseline"
+            result = "IMPROVED-over-BASE"
         elif m2 > m1:
-            result = "IMPROVED from model1"
+            result = "IMPROVED-over-M1"
         else:
             result = "WORSE"
     except Exception:
@@ -157,11 +162,13 @@ def main():
         orig_score, model1_acc = baseline_d["acc"].get(dataset_name, "?")
         # logging.warning(f"====")
         # run_eval(args.model1, config)
+        s2 = time.time()
         model2_acc = run_eval(args.model2, config)
+        took2 = time.time() - s2
 
         # based on the other, print out the result BEST, WORST, ...
         result = get_res_tag(orig_score, model1_acc, model2_acc)
-        _logger.warning(f"| {dataset_name:26s} | {str(orig_score):26s} | {str(model1_acc):26s} | {model2_acc:6.4f} - {result}")
+        _logger.warning(f"| {dataset_name:26s} | {str(orig_score):26s} | {str(model1_acc):26s} | {model2_acc:6.4f} - {result:20s} | Took {took2:6.2f}s")
 
 
 if __name__ == "__main__":

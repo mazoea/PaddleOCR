@@ -110,10 +110,14 @@ Train:
     num_workers: 0
 
 Eval:
+  # silent: false
   dataset:
     name: MazDataset
     data_dir: c:/data/woec_dataset/multi/__woec.DOCS-BIO.json.PAD.FILTERED.json
     ratio: [0.0, 1.0]
+    static_max_workers: 4
+    static_mode_load: true
+    # static_mode_save: true
     transforms:
     - DecodeImage:
         img_mode: BGR
