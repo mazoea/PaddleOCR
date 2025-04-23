@@ -95,3 +95,10 @@ See README.md in `te-dataset-finetune`
 ```
 docker run  -e LABEL_STUDIO_HOST=http://dev-10.pc/labels/ -d --restart always -p 8090:8080 -v /opt/labelling:/label-studio/data heartexlabs/label-studio:latest
 ```
+
+Make sure that the UI will use a reasonable font distinguishing between 0O and Il
+```
+mkdir -p /var/www/html/static/fonts/
+cp ./JetBrainsMono-Regular.ttf /var/www/html/static/fonts/Figtree-Regular.ttf
+```
+
