@@ -11,6 +11,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import orjson
 import tqdm
 
+__all__ = ["MazDataset", "MazDatasetRaw"]
+
+from ._raw import MazDatasetRaw
+
 
 def load_pkl(logger, cache_path: str):
     logger.info(f"Loading static cache from [{cache_path}]")

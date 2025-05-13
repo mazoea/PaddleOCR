@@ -171,7 +171,7 @@ def main():
         scaler,
         amp_level,
         amp_custom_black_list,
-        silent=True
+        silent=os.environ.get("EVAL_VERBOSE", "0") == "0",
     )
 
     if "diffs" in metric:

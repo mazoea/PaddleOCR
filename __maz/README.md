@@ -95,3 +95,47 @@ See README.md in `te-dataset-finetune`
 ```
 docker run  -e LABEL_STUDIO_HOST=http://dev-10.pc/labels/ -d --restart always -p 8090:8080 -v /opt/labelling:/label-studio/data heartexlabs/label-studio:latest
 ```
+
+
+# Debugging paddle detection
+
+See https://paddlepaddle.github.io/PaddleOCR/main/en/ppocr/quick_start.html#211-chinese-and-english-model
+Download test images and: 
+
+```
+import glob
+import os
+import sys
+from paddleocr import PaddleOCR
+from PIL import Image, ImageDraw, ImageFont
+
+
+font = ImageFont.truetype("./fonts/simfang.ttf", size=20)  # Adjust size as needed
+
+def viz(img_path, results):
+    # Load image
+    image = Image.open(img_path).convert("RGB")
+    draw = ImageDraw.Draw(image)
+    # Process and draw results
+    for res in results:
+        for line in res:
+            box = [tuple(point) for point in line[0]]
+            # Finding the bounding box
+            box = [(min(point[0] for point in box), min(point[1] for point in box)),
+                   (max(point[0] for point in box), max(point[1] for point in box))]
+            txt = line[1][0]
+            draw.rectangle(box, outline="red", width=2)  # Draw rectangle
+            draw.text((box[0][0], box[0][1] - 5), txt, fill="blue", font=font)  # Draw text above the box
+    # Save result
+    image.save(os.path.basename(img_path))
+
+
+# Initialize OCR engine
+ocr = PaddleOCR(use_angle_cls=False, lang="en")
+img_paths = glob.glob(sys.argv[1])
+for img_path in img_paths:
+    results = ocr.ocr(img_path, rec=True, cls=False)
+    viz(img_path, results)
+```
+
+Adjust `DBPostProcess::box_score_slow` in `ppocr/postprocess/db_postprocess.py`.

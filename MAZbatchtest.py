@@ -10,6 +10,11 @@
 | IBedits          | 0.8061                 | 0.9719                  |
 | cord-v2          | 0.8233                 | 0.9588                  |
 | genText          | 0.5077                 | 0.9726                  |
+| hiertext         | 0.8349                 | 0.7169                  |
+
+
+Notes:
+    hiertext - ratio=[0., 0.25], bigger ratio has +- the same acc
 """
 
 import os
@@ -31,6 +36,7 @@ env= {
         "eval.xFund.yml",
         "eval.cord-v2.yml",
         "eval.genText.yml",
+        "eval.hiertext.yml",
     ]
 }
 

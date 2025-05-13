@@ -39,7 +39,7 @@ from ppocr.data.pgnet_dataset import PGDataSet
 from ppocr.data.pubtab_dataset import PubTabDataSet
 from ppocr.data.multi_scale_sampler import MultiScaleSampler
 from ppocr.data.latexocr_dataset import LaTeXOCRDataSet
-from maz import MazDataset
+from maz import MazDataset, MazDatasetRaw
 
 # for PaddleX dataset_type
 TextDetDataset = SimpleDataSet
@@ -100,6 +100,7 @@ def build_dataloader(config, mode, device, logger, seed=None):
         "KieDataset",
         "LaTeXOCRDataSet",
         "MazDataset",
+        "MazDatasetRaw",
 
     ]
     module_name = config[mode]["dataset"]["name"]

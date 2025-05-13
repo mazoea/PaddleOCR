@@ -1,12 +1,12 @@
 Global:
-  debug: false
+  debug: true
   use_gpu: true
-  epoch_num: 200
+  epoch_num: 500
   log_smooth_window: 20
-  print_batch_step: 10
-  save_model_dir: ./output/v3_en_mobile_2024.04.02
-  save_epoch_step: 1
-  eval_batch_step: [0, 150]
+  print_batch_step: 1
+  save_model_dir: ./output/v3_en_mobile
+  save_epoch_step: 3
+  eval_batch_step: [0, 1000]
   cal_metric_during_train: true
   pretrained_model:
   checkpoints:
@@ -19,7 +19,6 @@ Global:
   use_space_char: true
   distributed: false
   save_res_path: ./output/rec/predicts_ppocrv3_en.txt
-  use_wandb: true
 
 
 Optimizer:
@@ -29,15 +28,10 @@ Optimizer:
   lr:
     name: Cosine
     learning_rate: 0.001
-    warmup_epoch: 0
-#  lr:
-#    name: Piecewise
-#    decay_epochs : [700]
-#    values : [0.001, 0.0001]
-#    warmup_epoch: 5
+    warmup_epoch: 5
   regularizer:
     name: L2
-    factor: 1.0e-04
+    factor: 3.0e-05
 
 
 Architecture:
@@ -45,32 +39,30 @@ Architecture:
   algorithm: SVTR_LCNet
   Transform:
   Backbone:
-    name: MobileNetV1Enhance
-    scale: 0.5
-    last_conv_stride: [1, 2]
-    last_pool_type: avg
-    last_pool_kernel_size: [2, 2]
+    name: PPLCNetV3
+    scale: 0.95
   Head:
     name: MultiHead
     head_list:
       - CTCHead:
           Neck:
             name: svtr
-            dims: 64
+            dims: 120
             depth: 2
             hidden_dims: 120
+            kernel_size: [1, 3]
             use_guide: True
           Head:
             fc_decay: 0.00001
-      - SARHead:
-          enc_dim: 512
+      - NRTRHead:
+          nrtr_dim: 384
           max_text_length: *max_text_length
 
 Loss:
   name: MultiLoss
   loss_config_list:
     - CTCLoss:
-    - SARLoss:
+    - NRTRLoss:
 
 PostProcess:  
   name: CTCLabelDecode
@@ -83,23 +75,18 @@ Metric:
 Train:
   dataset:
     name: MazDataset
-    # data_dir: c:/data/woec_dataset/multi/__woec.IBedits.json.PAD.FILTERED.json
-    data_dir: c:/data/woec_dataset/multi/
-    ratio: [0., 1.]
-    max_limit_per_dataset:
-      "*": 130000
-    static_mode_save_final: c:/data/woec_dataset/multi/all-paddle.TRAIN.pkl
-#    dynamic_cache: true
-#    dynamic_cache_workers: 2
-#    dynamic_mode_verbose: 1
-#    dynamic_cache_prefetch: 2048
+    data_dir: c:/data/woec_dataset/multi/__woec.IBedits.json.PAD.FILTERED.json
+    # data_dir: c:/data/woec_dataset/multi/__woec.IB-simple.json.PAD.FILTERED.json
+    ratio: [0., 0.8]
     ext_op_transform_idx: 1
+    label_file_list:
+    - ./train_data/train_list.txt
     transforms:
     - DecodeImage:
         img_mode: BGR
         channel_first: false
     - RecConAug:
-        prob: 0.15
+        prob: 0.5
         ext_data_num: 2
         image_shape: [48, 320, 3]
         max_text_length: *max_text_length
@@ -115,31 +102,19 @@ Train:
         - length
         - valid_ratio
   loader:
-    # shuffle: true
-    # use false if dynamic cache is enabled
-    shuffle: false
-    batch_size_per_card: 128
+    shuffle: true
+    batch_size_per_card: 64
     drop_last: true
-    num_workers: 0  # not supported on windows
+    num_workers: 0
 
 Eval:
   dataset:
     name: MazDataset
-#    data_dir: c:/data/woec_dataset/multi/__woec.funSD.json.PAD.FILTERED.json
-    # data_dir: c:/data/woec_dataset/multi/__woec.IBedits.json.PAD.FILTERED.json
-    # data_dir: c:/data/woec_dataset/multi/__woec.ICDAR2013.json.PAD.FILTERED.json
-    data_dir: c:/data/woec_dataset/multi/
-    data_dir_exclude:
-      - __woec.ICDAR2013.json.PAD.FILTERED.json
+    data_dir: c:/data/woec_dataset/multi/__woec.IBedits.json.PAD.FILTERED.json
+    # static_max_workers: 4
+    static_mode_load: true
+    # static_mode_save: true
     ratio: [0.0, 1.0]
-    static_mode_save_final: c:/data/woec_dataset/multi/all-paddle.EVAL.pkl
-#    dynamic_cache: true
-#    dynamic_cache_workers: 1
-#    dynamic_mode_verbose: 0
-#    dynamic_cache_prefetch: 8196
-    max_limit_per_dataset:
-      "*": 2500
-      "__woec.IBedits.json.PAD.FILTERED.json": 10000
     transforms:
     - DecodeImage:
         img_mode: BGR
@@ -157,5 +132,5 @@ Eval:
   loader:
     shuffle: false
     drop_last: false
-    batch_size_per_card: 64
+    batch_size_per_card: 128
     num_workers: 0
