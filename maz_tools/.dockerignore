@@ -1,0 +1,79 @@
+# .dockerignore
+# Ignore unnecessary files to reduce Docker image size
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+
+# Test files
+test_*.py
+*_test.py
+tests/
+
+# Input/Output files
+qa_input/
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*_detected.png
+*_result.png
+detection_result.jpg
+
+# Scripts (except what's needed)
+build_and_deploy.sh
+build_and_deploy.ps1
+
+# Model files (uncomment if models are in separate directory and you want to download at runtime)
+# PP-OCRv5_server_det/
+
+# Other
+.env
+*.bak

@@ -1,0 +1,61 @@
+# Use AWS Lambda Python 3.12 base image, because we need GLIBC (2.34) 
+FROM public.ecr.aws/lambda/python:3.12
+
+# Set all the environment variables
+ENV HOME=/tmp
+ENV TMPDIR=/tmp
+ENV TEMP=/tmp
+ENV TMP=/tmp
+ENV PADDLEX_HOME=/tmp/paddlex
+ENV PADDLEHUB_HOME=/tmp/paddlehub
+ENV PADDLE_HOME=/tmp/paddle
+ENV FLAGS_use_mkldnn=false
+ENV FLAGS_cpu_deterministic=true
+ENV KMP_DUPLICATE_LIB_OK=TRUE
+ENV OMP_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
+ENV OPENBLAS_NUM_THREADS=1
+
+
+# Install system dependencies required for OpenCV and PaddleOCR
+# Amazon Linux 2023 package names (uses dnf instead of yum)
+RUN dnf install -y \
+    mesa-libGL \
+    mesa-libGL-devel \
+    libgomp \
+    glib2 \
+    libSM \
+    libXext \
+    libXrender \
+    libXrandr \
+    libXi \
+    freetype \
+    fontconfig \
+    geos \
+    geos-devel \
+    && dnf clean all && \
+    rm -rf /var/cache/dnf
+
+# Copy requirements file
+COPY requirements.txt ${LAMBDA_TASK_ROOT}/
+
+# Install Python dependencies
+# Use --no-cache-dir to reduce image size
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
+
+# Copy the Lambda handler and model code
+COPY lambda_handler.py ${LAMBDA_TASK_ROOT}/
+
+# Optional: Pre-download the model (uncomment if you have the model files)
+# This reduces cold start time
+#COPY PP-OCRv5_server_det/ ${LAMBDA_TASK_ROOT}/PP-OCRv5_server_det/
+COPY PP-OCRv5_mobile_det_infer/ ${LAMBDA_TASK_ROOT}/PP-OCRv5_mobile_det_infer/
+
+# Set environment variables
+#ENV MODEL_DIR=${LAMBDA_TASK_ROOT}/PP-OCRv5_server_det
+ENV MODEL_DIR=${LAMBDA_TASK_ROOT}/PP-OCRv5_mobile_det_infer
+ENV PYTHONUNBUFFERED=1
+
+# Set the CMD to your handler
+CMD [ "lambda_handler.lambda_handler" ]
