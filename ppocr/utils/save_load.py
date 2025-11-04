@@ -20,7 +20,7 @@ import errno
 import os
 import pickle
 import json
-import shutil
+from packaging import version
 
 import paddle
 
@@ -32,10 +32,19 @@ try:
 
     encrypted = encryption.is_encryption_needed()
 except ImportError:
-    get_logger("ppocr-err").warning("Skipping import of the encryption module.")
+    print("Skipping import of the encryption module.")
     encrypted = False  # Encryption is not needed if the module cannot be imported
 
 __all__ = ["load_model"]
+
+
+# just to determine the inference model file format
+def get_FLAGS_json_format_model():
+    # json format by default
+    return os.environ.get("FLAGS_json_format_model", "1").lower() in ("1", "true", "t")
+
+
+FLAGS_json_format_model = get_FLAGS_json_format_model()
 
 
 def _mkdir_if_not_exist(path, logger):
@@ -151,7 +160,7 @@ def load_model(config, model, optimizer=None, model_type="det"):
             best_model_dict["acc"] = 0.0
             if "epoch" in states_dict:
                 best_model_dict["start_epoch"] = states_dict["epoch"] + 1
-        logger.critical("resume from {}".format(checkpoints))
+        logger.info("resume from {}".format(checkpoints))
     elif pretrained_model:
         is_float16 = load_pretrained_params(model, pretrained_model)
     else:
@@ -217,17 +226,12 @@ def save_model(
     """
     _mkdir_if_not_exist(model_path, logger)
     model_prefix = os.path.join(model_path, prefix)
-    model_gen_prefix = None
-    if "global_step" in kwargs and "metric" in kwargs:
-        model_gen_prefix = os.path.join(
-            model_path, f"step_{kwargs['global_step']:06d}.metric_{kwargs['metric']:6.4f}")
 
     if prefix == "best_accuracy":
         best_model_path = os.path.join(model_path, "best_model")
         _mkdir_if_not_exist(best_model_path, logger)
 
     paddle.save(optimizer.state_dict(), model_prefix + ".pdopt")
-
     if prefix == "best_accuracy":
         paddle.save(
             optimizer.state_dict(), os.path.join(best_model_path, "model.pdopt")
@@ -238,9 +242,6 @@ def save_model(
     ]["algorithm"] not in ["SDMGR"]
     if is_nlp_model is not True:
         paddle.save(model.state_dict(), model_prefix + ".pdparams")
-        if model_gen_prefix is not None:
-            shutil.copyfile(model_prefix + ".pdparams", model_gen_prefix + ".pdparams")
-
         metric_prefix = model_prefix
 
         if prefix == "best_accuracy":
@@ -273,16 +274,6 @@ def save_model(
     # save metric and config
     with open(metric_prefix + ".states", "wb") as f:
         pickle.dump(kwargs, f, protocol=2)
-
-    if model_gen_prefix is not None:
-        for suffix in (".pdparams", ".pdopt", ".states"):
-            if not os.path.exists(model_prefix + suffix):
-                continue
-            try:
-                shutil.copyfile(model_prefix + suffix, model_gen_prefix + suffix)
-            except Exception as e:
-                logger.error(f"Error copying file {model_prefix + suffix} to {model_gen_prefix + suffix}: {e}")
-
     if is_best:
         logger.info("save best model is to {}".format(model_prefix))
     else:
@@ -298,13 +289,26 @@ def update_train_results(config, prefix, metric_info, done_flag=False, last_num=
         config["Global"]["save_model_dir"], "train_result.json"
     )
     save_model_tag = ["pdparams", "pdopt", "pdstates"]
-    save_inference_tag = ["inference_config", "pdmodel", "pdiparams", "pdiparams.info"]
+    paddle_version = version.parse(paddle.__version__)
+    if FLAGS_json_format_model or paddle_version >= version.parse("3.0.0"):
+        save_inference_files = {
+            "inference_config": "inference.yml",
+            "pdmodel": "inference.json",
+            "pdiparams": "inference.pdiparams",
+        }
+    else:
+        save_inference_files = {
+            "inference_config": "inference.yml",
+            "pdmodel": "inference.pdmodel",
+            "pdiparams": "inference.pdiparams",
+            "pdiparams.info": "inference.pdiparams.info",
+        }
     if os.path.exists(train_results_path):
         with open(train_results_path, "r") as fp:
             train_results = json.load(fp)
     else:
         train_results = {}
-        train_results["model_name"] = config["Global"]["pdx_model_name"]
+        train_results["model_name"] = config["Global"]["model_name"]
         label_dict_path = config["Global"].get("character_dict_path", "")
         if label_dict_path != "":
             label_dict_path = os.path.abspath(label_dict_path)
@@ -344,11 +348,9 @@ def update_train_results(config, prefix, metric_info, done_flag=False, last_num=
                     prefix,
                     f"{prefix}.{tag}" if tag != "pdstates" else f"{prefix}.states",
                 )
-        for tag in save_inference_tag:
-            train_results["models"]["best"][tag] = os.path.join(
-                prefix,
-                "inference",
-                f"inference.{tag}" if tag != "inference_config" else "inference.yml",
+        for key in save_inference_files:
+            train_results["models"]["best"][key] = os.path.join(
+                prefix, "inference", save_inference_files[key]
             )
     else:
         for i in range(last_num - 1, 0, -1):
@@ -379,11 +381,9 @@ def update_train_results(config, prefix, metric_info, done_flag=False, last_num=
                     prefix,
                     f"{prefix}.{tag}" if tag != "pdstates" else f"{prefix}.states",
                 )
-        for tag in save_inference_tag:
-            train_results["models"][f"last_{1}"][tag] = os.path.join(
-                prefix,
-                "inference",
-                f"inference.{tag}" if tag != "inference_config" else "inference.yml",
+        for key in save_inference_files:
+            train_results["models"][f"last_{1}"][key] = os.path.join(
+                prefix, "inference", save_inference_files[key]
             )
 
     with open(train_results_path, "w") as fp:

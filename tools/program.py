@@ -16,7 +16,6 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import logging
 import os
 import gc
 import sys
@@ -225,7 +224,7 @@ def train(
             if not eval_batch_epoch
             else step_pre_epoch * eval_batch_epoch
         )
-        if len(valid_dataloader or []) == 0:
+        if len(valid_dataloader) == 0:
             logger.info(
                 "No Images in eval dataset, evaluation during training "
                 "will be disabled"
@@ -339,6 +338,9 @@ def train(
                         "UniMERNet",
                         "PP-FormulaNet-S",
                         "PP-FormulaNet-L",
+                        "PP-FormulaNet_plus-S",
+                        "PP-FormulaNet_plus-M",
+                        "PP-FormulaNet_plus-L",
                     ]:
                         preds = model(batch)
                     else:
@@ -361,6 +363,9 @@ def train(
                     "UniMERNet",
                     "PP-FormulaNet-S",
                     "PP-FormulaNet-L",
+                    "PP-FormulaNet_plus-S",
+                    "PP-FormulaNet_plus-M",
+                    "PP-FormulaNet_plus-L",
                 ]:
                     preds = model(batch)
                 else:
@@ -392,7 +397,13 @@ def train(
                     model_type = "unimernet"
                     post_result = post_process_class(preds[0], batch[1], mode="train")
                     eval_class(post_result[0], post_result[1], epoch_reset=(idx == 0))
-                elif algorithm in ["PP-FormulaNet-S", "PP-FormulaNet-L"]:
+                elif algorithm in [
+                    "PP-FormulaNet-S",
+                    "PP-FormulaNet-L",
+                    "PP-FormulaNet_plus-S",
+                    "PP-FormulaNet_plus-M",
+                    "PP-FormulaNet_plus-L",
+                ]:
                     model_type = "pp_formulanet"
                     post_result = post_process_class(preds[0], batch[1], mode="train")
                     eval_class(post_result[0], post_result[1], epoch_reset=(idx == 0))
@@ -496,8 +507,6 @@ def train(
                     amp_custom_black_list=amp_custom_black_list,
                     amp_custom_white_list=amp_custom_white_list,
                     amp_dtype=amp_dtype,
-                    silent=True,
-                    return_diffs=False,
                 )
                 cur_metric_str = "cur metric, {}".format(
                     ", ".join(["{}: {}".format(k, v) for k, v in cur_metric.items()])
@@ -540,7 +549,6 @@ def train(
                         best_model_dict=best_model_dict,
                         epoch=epoch,
                         global_step=global_step,
-                        metric=cur_metric[main_indicator],
                     )
                 best_str = "best metric, {}".format(
                     ", ".join(
@@ -646,17 +654,14 @@ def eval(
     amp_custom_black_list=[],
     amp_custom_white_list=[],
     amp_dtype="float16",
-    silent=False,
-    return_diffs=True,
 ):
     model.eval()
-    diffs = []
     with paddle.no_grad():
         total_frame = 0.0
         total_time = 0.0
         pbar = tqdm(
-            total=len(valid_dataloader), desc="eval model", position=0, leave=True
-        ) if not silent else None
+            total=len(valid_dataloader), desc="eval model:", position=0, leave=True
+        )
         max_iter = (
             len(valid_dataloader) - 1
             if platform.system() == "Windows"
@@ -731,27 +736,21 @@ def eval(
                 eval_class(post_result[0], post_result[1], epoch_reset=(idx == 0))
             else:
                 post_result = post_process_class(preds, batch_numpy[1])
-                d = eval_class(post_result, batch_numpy)
-                if "diffs" in d:
-                    diffs += [x for x in d["diffs"] if x[0] != None]
+                eval_class(post_result, batch_numpy)
 
-            if pbar:
-                pbar.update(1)
+            pbar.update(1)
             total_frame += len(images)
             sum_images += 1
         # Get final metric，eg. acc or hmean
         metric = eval_class.get_metric()
 
-    if pbar:
-        pbar.close()
+    pbar.close()
     model.train()
     # Avoid ZeroDivisionError
     if total_time > 0:
         metric["fps"] = total_frame / total_time
     else:
         metric["fps"] = 0  # or set to a fallback value
-    if return_diffs:
-        metric["diffs"] = diffs
     return metric
 
 
@@ -815,7 +814,6 @@ def preprocess(is_train=False):
     profile_dic = {"profiler_options": FLAGS.profiler_options}
     config = merge_config(config, profile_dic)
 
-    log_level = logging.DEBUG
     if is_train:
         # save_config
         save_model_dir = config["Global"]["save_model_dir"]
@@ -823,12 +821,11 @@ def preprocess(is_train=False):
         with open(os.path.join(save_model_dir, "config.yml"), "w") as f:
             yaml.dump(dict(config), f, default_flow_style=False, sort_keys=False)
         log_file = "{}/train.log".format(save_model_dir)
-        log_level = logging.INFO
     else:
         log_file = None
 
     log_ranks = config["Global"].get("log_ranks", "0")
-    logger = get_logger(log_file=log_file, log_level=log_level, log_ranks=log_ranks)
+    logger = get_logger(log_file=log_file, log_ranks=log_ranks)
 
     # check if set use_gpu=True in paddlepaddle cpu version
     use_gpu = config["Global"].get("use_gpu", False)
@@ -886,6 +883,9 @@ def preprocess(is_train=False):
         "SLANeXt",
         "PP-FormulaNet-S",
         "PP-FormulaNet-L",
+        "PP-FormulaNet_plus-S",
+        "PP-FormulaNet_plus-M",
+        "PP-FormulaNet_plus-L",
     ]
 
     if use_xpu:
@@ -926,16 +926,12 @@ def preprocess(is_train=False):
         loggers.append(log_writer)
     else:
         log_writer = None
-
-    should_print = is_train is True or not config.get("Eval", {}).get("silent", True)
-    if should_print:
-        print_dict(config, logger)
+    print_dict(config, logger)
 
     if loggers:
         log_writer = Loggers(loggers)
     else:
         log_writer = None
 
-    if should_print:
-        logger.info("train with paddle {} and device {}".format(paddle.__version__, device))
+    logger.info("train with paddle {} and device {}".format(paddle.__version__, device))
     return config, device, logger, log_writer

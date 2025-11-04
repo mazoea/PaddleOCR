@@ -140,7 +140,9 @@ def main(config, device, logger, vdl_writer, seed):
 
     use_sync_bn = config["Global"].get("use_sync_bn", False)
     if use_sync_bn:
-        if config["Global"].get("use_npu", False):
+        if config["Global"].get("use_npu", False) or config["Global"].get(
+            "use_xpu", False
+        ):
             naive_sync_bn.convert_syncbn(model)
         else:
             model = paddle.nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -181,9 +183,7 @@ def main(config, device, logger, vdl_writer, seed):
         except:
             pass
     if use_amp:
-        AMP_RELATED_FLAGS_SETTING = {
-            "FLAGS_max_inplace_grad_add": 8,
-        }
+        AMP_RELATED_FLAGS_SETTING = {}
         if paddle.is_compiled_with_cuda():
             AMP_RELATED_FLAGS_SETTING.update(
                 {
@@ -217,7 +217,10 @@ def main(config, device, logger, vdl_writer, seed):
     )
 
     if config["Global"]["distributed"]:
-        model = paddle.DataParallel(model)
+        find_unused_parameters = config["Global"].get("find_unused_parameters", False)
+        model = paddle.DataParallel(
+            model, find_unused_parameters=find_unused_parameters
+        )
     # start train
     program.train(
         config,

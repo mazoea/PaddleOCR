@@ -18,11 +18,8 @@ from __future__ import print_function
 
 import os
 import sys
-import json
-from collections import defaultdict
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
-
 sys.path.insert(0, __dir__)
 sys.path.insert(0, os.path.abspath(os.path.join(__dir__, "..")))
 
@@ -110,16 +107,19 @@ def main():
             model_type = "can"
         elif config["Architecture"]["algorithm"] == "LaTeXOCR":
             model_type = "latexocr"
-            config["Metric"]["cal_blue_score"] = True
+            config["Metric"]["cal_bleu_score"] = True
         elif config["Architecture"]["algorithm"] == "UniMERNet":
             model_type = "unimernet"
-            config["Metric"]["cal_blue_score"] = True
+            config["Metric"]["cal_bleu_score"] = True
         elif config["Architecture"]["algorithm"] in [
             "PP-FormulaNet-S",
             "PP-FormulaNet-L",
+            "PP-FormulaNet_plus-S",
+            "PP-FormulaNet_plus-M",
+            "PP-FormulaNet_plus-L",
         ]:
             model_type = "pp_formulanet"
-            config["Metric"]["cal_blue_score"] = True
+            config["Metric"]["cal_bleu_score"] = True
         else:
             model_type = config["Architecture"]["model_type"]
     else:
@@ -134,7 +134,6 @@ def main():
     if use_amp:
         AMP_RELATED_FLAGS_SETTING = {
             "FLAGS_cudnn_batchnorm_spatial_persistent": 1,
-            "FLAGS_max_inplace_grad_add": 8,
         }
         paddle.set_flags(AMP_RELATED_FLAGS_SETTING)
         scale_loss = config["Global"].get("scale_loss", 1.0)
@@ -155,7 +154,7 @@ def main():
     best_model_dict = load_model(
         config, model, model_type=config["Architecture"]["model_type"]
     )
-    if len(best_model_dict) and config["Eval"].get("silent", True) == False:
+    if len(best_model_dict):
         logger.info("metric in ckpt ***************")
         for k, v in best_model_dict.items():
             logger.info("{}:{}".format(k, v))
@@ -171,36 +170,10 @@ def main():
         scaler,
         amp_level,
         amp_custom_black_list,
-        silent=os.environ.get("EVAL_VERBOSE", "0") == "0",
     )
-
-    if "diffs" in metric:
-        dataset_name = os.path.basename(config['Eval']['dataset']['data_dir']).replace(".PAD.FILTERED.json", "")
-        checkpoints = config.get("checkpoints", "").split("/")
-        checkpoint_name = "UNK"
-        if len(checkpoints) == 3:
-            checkpoint_name = checkpoints[1]
-        # count diffs
-        cnter = defaultdict(int)
-        for pred, target, pred_conf in metric["diffs"]:
-            if pred != target:
-                k = f"{pred} -> {target} [{pred_conf:5.2f}]"
-                cnter[k] += 1
-        # sort by count
-        metric["diffs-count"] = sorted(cnter.items(), key=lambda x: x[1], reverse=True)
-        eval_file_str = f'inference_results/eval.diffs.{checkpoint_name}__{dataset_name}.json'
-        os.makedirs(os.path.dirname(eval_file_str), exist_ok=True)
-        metric["checkpoint"] = global_config.get("checkpoints")
-        with open(eval_file_str, 'w', encoding="utf-8") as fout:
-            json.dump(metric, fout, indent=4, ensure_ascii=True)
-        del metric["checkpoint"]
-        del metric["diffs"]
-        del metric["diffs-count"]
-
-    logger.critical(f"metric eval *************** {config['Eval']['dataset']['data_dir']}")
+    logger.info("metric eval ***************")
     for k, v in metric.items():
-        msg = "{}:{}".format(k, v)
-        logger.info(msg) if k != "acc" else logger.critical(msg)
+        logger.info("{}:{}".format(k, v))
 
 
 if __name__ == "__main__":

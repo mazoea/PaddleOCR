@@ -24,7 +24,9 @@ from tqdm import tqdm
 
 from ppocr.utils.logging import get_logger
 
-MODELS_DIR = os.path.expanduser("~/.paddleocr/models/")
+MODELS_DIR = os.path.join(
+    os.environ.get("PADDLE_OCR_BASE_DIR", os.path.expanduser("~/.paddleocr/")), "models"
+)
 DOWNLOAD_RETRY_LIMIT = 3
 
 
@@ -81,7 +83,7 @@ def _download(url, save_path):
                 "{}!".format(url, req.status_code)
             )
 
-        # For protecting download interupted, download to
+        # For protecting download interrupted, download to
         # tmp_file firstly, move tmp_file to save_path
         # after download finished
         tmp_file = save_path + ".tmp"

@@ -488,7 +488,7 @@ class AttnLabelEncode(BaseRecLabelEncode):
         elif beg_or_end == "end":
             idx = np.array(self.dict[self.end_str])
         else:
-            assert False, "Unsupport type %s in get_beg_end_flag_idx" % beg_or_end
+            assert False, "Unsupported type %s in get_beg_end_flag_idx" % beg_or_end
         return idx
 
 
@@ -546,7 +546,7 @@ class RFLLabelEncode(BaseRecLabelEncode):
         elif beg_or_end == "end":
             idx = np.array(self.dict[self.end_str])
         else:
-            assert False, "Unsupport type %s in get_beg_end_flag_idx" % beg_or_end
+            assert False, "Unsupported type %s in get_beg_end_flag_idx" % beg_or_end
         return idx
 
 
@@ -626,7 +626,7 @@ class SRNLabelEncode(BaseRecLabelEncode):
         elif beg_or_end == "end":
             idx = np.array(self.dict[self.end_str])
         else:
-            assert False, "Unsupport type %s in get_beg_end_flag_idx" % beg_or_end
+            assert False, "Unsupported type %s in get_beg_end_flag_idx" % beg_or_end
         return idx
 
 
@@ -1781,6 +1781,10 @@ class LatexOCRLabelEncode(object):
         rec_char_dict_path,
         **kwargs,
     ):
+        # Set the TOKENIZERS_PARALLELISM environment variable to 'false' to suppress
+        # the warning: "The current process just got forked, Disabling parallelism to avoid deadlocks..
+        #  To disable this warning, please explicitly set TOKENIZERS_PARALLELISM=(true | false)" from tokenizers
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
         from tokenizers import Tokenizer as TokenizerFast
 
         self.tokenizer = TokenizerFast.from_file(rec_char_dict_path)
@@ -1934,6 +1938,10 @@ class UniMERNetLabelEncode(object):
         max_seq_len,
         **kwargs,
     ):
+        # Set the TOKENIZERS_PARALLELISM environment variable to 'false' to suppress
+        # the warning: "The current process just got forked, Disabling parallelism to avoid deadlocks..
+        #  To disable this warning, please explicitly set TOKENIZERS_PARALLELISM=(true | false)" from tokenizers
+        os.environ["TOKENIZERS_PARALLELISM"] = "false"
         from tokenizers import Tokenizer as TokenizerFast
         from tokenizers import AddedToken
 
