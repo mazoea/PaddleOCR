@@ -3,6 +3,9 @@ import numpy as np
 import sys
 import os
 import time
+import argparse
+import json
+
 # PaddlePaddle CPU optimization flags for Lambda
 # These prevent segmentation faults on Lambda's CPU architecture
 os.environ['FLAGS_use_mkldnn'] = 'false'  # Disable MKL-DNN to avoid CPU compatibility issues
@@ -14,19 +17,21 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'  # Limit OpenBLAS threads
 
 from paddleocr import TextDetection
 
-def only_textspoting(image_path, output_path=None):
+def only_textspoting(image_path: str, model_dir: str, heat_map: bool, bbs: bool, output_path=None):
     # 1. Initialize the TextDetection model
     # You can specify a different model name if needed.
     # For a list of models, refer to the PaddleOCR documentation.
     # 5. Generate output path if not provided
     if output_path is None:
-        base, ext = os.path.splitext(image_path)
-        output_path = f"{base}_detection_result{ext}"
+        output_path = f"{image_path}_detection.png"
+    else:
+        file_name = os.path.basename(image_path)
+        output_path = os.path.join(output_path, f"{file_name}_detection.png")
 
     print("Initializing TextDetection model...")
     s0 = time.time()
-    detector = TextDetection(device='cpu', model_dir="./PP-OCRv5_mobile_det_infer_1st", model_name="PP-OCRv5_mobile_det", limit_side_len=64, limit_type='min',
-                             thresh=0.3, box_thresh=0.6, unclip_ratio=1.5, cpu_threads=1, enable_mkldnn=False, mkldnn_cache_capacity=0)
+    detector = TextDetection(device='cpu', model_dir=model_dir, model_name="PP-OCRv5_mobile_det", limit_side_len=64, limit_type='min',
+                             thresh=0.1, box_thresh=0.3, unclip_ratio=1.5, cpu_threads=1, enable_mkldnn=False, mkldnn_cache_capacity=0)
     print("TextDetection model initialized in {:.3f} seconds".format(time.time() - s0))
 
     # 2. Read the image using OpenCV
@@ -51,6 +56,11 @@ def only_textspoting(image_path, output_path=None):
     # and their scores ('dt_scores').
     print("Performing text detection...")
     s1 = time.time()
+    if heat_map:
+        os.environ["MAZ_OUTPUT_PATH"] = output_path  # For debugging purposes
+    else:
+        if "MAZ_OUTPUT_PATH" in os.environ:
+            del os.environ["MAZ_OUTPUT_PATH"]
     results = detector.predict(img)
     print("Text detection completed in {:.3f} seconds".format(time.time() - s1))
     print("Text detection whole: {:.3f} seconds".format(time.time() - s0))
@@ -61,30 +71,70 @@ def only_textspoting(image_path, output_path=None):
     # 4. Draw polygons around each detected text region
     output_image = img.copy()
 
+    bboxes = []
     for i, bbox in enumerate(detected_regions["dt_polys"], 1):
         # Convert bbox to numpy array
         box = np.reshape(np.array(bbox), [-1, 1, 2]).astype(np.int64)
         # Draw blue polygon (BGR format, so blue is (255, 0, 0))
         output_image = cv2.polylines(np.array(output_image), [box], True, (255, 0, 0), 2)
 
-    # 6. Save the result image
+        box_points = box.tolist()
+        x_coords = [point[0][0] for point in box_points]
+        y_coords = [point[0][1] for point in box_points]
+
+        # Find min and max for x and y
+        x_min = min(x_coords)
+        x_max = max(x_coords)
+        y_min = min(y_coords)
+        y_max = max(y_coords)
+
+        # Calculate width, height, and center coordinates
+        w = x_max - x_min
+        h = y_max - y_min
+
+        # Create the desired dictionary
+        result_dict = {
+            "h": int(h),
+            "w": int(w),
+            "x": int(x_min),
+            "y": int(y_min)
+        }
+        bboxes.append(result_dict)
+
+    # Save the result image
     cv2.imwrite(output_path, output_image)
     print(f"\nResult saved to: {output_path}")
+
+    # Save bounding boxes if requested
+    if bbs:
+        bboxes_path = f"{output_path}.bbs.json"
+        with open(bboxes_path, 'w') as f:
+            json.dump(bboxes, f)
 
     return output_path, detected_regions
 
 
 def main():
     """Main function to handle command line arguments."""
-    if len(sys.argv) < 2:
-        print("Usage: python ts_v3.py <image_path> [output_path]")
-        print("\nExample:")
-        print("  python ts_v3.py advent.44-000001.png")
-        print("  python ts_v3.py advent.44-000001.png detection_result.jpg")
-        sys.exit(1)
-    
-    image_path = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else None
+    parser = argparse.ArgumentParser(description='Run Paddle textspotting locally. Possibility to set model '
+                                                 'for test and output path, where to save results.')
+    parser.add_argument('--input', help='Input image',
+                        type=str, required=True)
+    parser.add_argument('--output', help='OutputPath',
+                        type=str, required=False, default=None)
+    parser.add_argument('--model_dir', help='Model dir where model with name PP-OCRv5_mobile_det will be stored',
+                        type=str, required=True)
+    parser.add_argument('--heat_map', help='Print heat map image for debugging',
+                        type=int, required=False, default=0)
+    parser.add_argument('--bbs', help='Print bounding boxes image for debugging',
+                        type=int, required=False, default=0)
+    flags = parser.parse_args()
+
+    image_path = flags.input
+    output_path = flags.output
+    model_dir = flags.model_dir
+    heat_map = flags.heat_map != 0
+    bbs = flags.bbs != 0
     
     # Check if input file exists
     if not os.path.exists(image_path):
@@ -92,7 +142,7 @@ def main():
         sys.exit(1)
     
     try:
-        only_textspoting(image_path, output_path)
+        only_textspoting(image_path, model_dir, heat_map, bbs, output_path)
     except Exception as e:
         print(f"\nError: {str(e)}")
         import traceback
