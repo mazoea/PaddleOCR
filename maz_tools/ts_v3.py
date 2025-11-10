@@ -109,7 +109,7 @@ def only_textspoting(image_path: str, model_dir: str, heat_map: bool, bbs: bool,
     if bbs:
         bboxes_path = f"{output_path}.bbs.json"
         with open(bboxes_path, 'w') as f:
-            json.dump(bboxes, f)
+            json.dump({"bboxes": bboxes, "img_h": img.shape[0], "img_w": img.shape[1]}, f)
 
     return output_path, detected_regions
 
