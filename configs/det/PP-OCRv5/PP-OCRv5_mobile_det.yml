@@ -2,32 +2,14 @@ Global:
   model_name: PP-OCRv5_mobile_det # To use static model for inference.
   debug: false
   use_gpu: true
-  epoch_num: &epoch_num 1000
+  epoch_num: &epoch_num 100
   log_smooth_window: 20
-  print_batch_step: 100
+  print_batch_step: 5
   save_model_dir: ./output/PP-OCRv5_mobile_det
   save_epoch_step: 10
   eval_batch_step:
   - 0
-  - 500
-  - 1000
-  - 1500
-  - 2000
-  - 2500
-  - 3000
-  - 3500
-  - 4000
-  - 4500
-  - 5000
-  - 5500
-  - 6000
-  - 6500
-  - 7000
-  - 7500
-  - 8000
-  - 8500
-  - 9000
-  - 9500
+  - 6
   cal_metric_during_train: false
   checkpoints:
   pretrained_model: https://paddleocr.bj.bcebos.com/pretrained/PPLCNetV3_x0_75_ocr_det.pdparams

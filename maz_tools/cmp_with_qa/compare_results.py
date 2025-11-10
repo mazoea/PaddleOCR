@@ -18,8 +18,9 @@ import io
 from typing import List, Dict, Tuple, Set
 import re
 from PIL import Image, ImageDraw
-from coords.bbox import overlap_min, deskew_bboxes
-from coords.bbox_wh import bbox
+# TODO solve this import
+from ../coords.bbox import overlap_min, deskew_bboxes
+from ../coords.bbox_wh import bbox
 
 # Directories
 RESULT1_DIR = r'D:\projects\issues\jira-515\newst_paddle\qa_output'
