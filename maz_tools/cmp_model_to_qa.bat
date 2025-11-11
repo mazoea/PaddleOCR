@@ -9,9 +9,13 @@ if "%1X"=="X" (
 
 set MODEL_PATH=%1
 
+SET QA_INPUT=d:\projects\issues\jira-515\newst_paddle\qa_input
+set OUTPUTPATH=d:\projects\issues\jira-515\newst_paddle\qa_output
+set QA_BASELINE=d:\projects\issues\jira-515\newst_paddle\qa_dp_advent_baseline
+
 rem run textspotting on the model
-rm -rf d:\projects\issues\jira-515\newst_paddle\qa_output
-python batch_ts_v3_local.py --input d:\projects\issues\jira-515\newst_paddle\qa_input --output d:\projects\issues\jira-515\newst_paddle\qa_output --model_dir %MODEL_PATH% --bbs=1 --threads=15
+rm -rf %OUTPUTPATH%
+python batch_ts_v3_local.py --input %QA_INPUT% --output %OUTPUTPATH% --model_dir %MODEL_PATH% --bbs=1 --threads=15
 rem check if errorlevel is not 0
 if not errorlevel 0 (
     echo Textspotting failed
@@ -20,7 +24,7 @@ if not errorlevel 0 (
 )
 
 rem baseline_dir = results from QA, by using python create_qa_baseline.py
-python cmp_ts_rs_with_qa_baseline.py --baseline-dir d:\projects\issues\jira-515\newst_paddle\qa_dp_advent_baseline --output-dir d:\projects\issues\jira-515\newst_paddle\qa_output
+python cmp_ts_rs_with_qa_baseline.py --baseline-dir %QA_BASELINE% --output-dir %OUTPUTPATH%
 if not errorlevel 0 (
     echo Textspotting failed
     pause
@@ -30,7 +34,7 @@ echo "Model %MODEL_PATH% comparison to QA baseline completed."
 
 
 echo "----------------------------------------------"
-echo "Results in PP-OCRv5_mobile_det_infer"
+echo "Results in PP-OCRv5_mobile_det_infer with thresh=0.1, box_thresh=0.3"
 echo "Total files compared: 470"
 echo "Total baseline bboxes: 110682"
 echo "Total output bboxes: 104503"

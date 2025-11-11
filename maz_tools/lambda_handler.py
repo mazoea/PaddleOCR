@@ -47,7 +47,7 @@ def get_detector():
     global DETECTOR
     if DETECTOR is None:
         print("Initializing TextDetection with Lambda-compatible settings...")
-        model_dir = os.environ.get('MODEL_DIR', './PP-OCRv5_mobile_det')
+        model_dir = os.environ.get('MODEL_DIR', './PP-OCRv5_mobile_det_infer')
         
         try:
             DETECTOR = TextDetection(
