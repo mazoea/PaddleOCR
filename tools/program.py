@@ -309,8 +309,41 @@ def train(
                 else len(train_dataloader)
             )
 
+        def dbg_dump(images_cpu, prefix):
+            rand = np.random.randint(0, 10000)
+            if images_cpu.ndim == 4:  # batch of images (N, C, H, W)
+                for i, img in enumerate(images_cpu):
+                    # Convert from (C, H, W) to (H, W, C)
+                    img = np.transpose(img, (1, 2, 0))
+
+                    # Denormalize if needed (assuming normalized to [0, 1])
+                    img = (img * 255).astype(np.uint8)
+
+                    # If grayscale, remove channel dimension
+                    if img.shape[2] == 1:
+                        img = img.squeeze(2)
+
+                    # Convert RGB to BGR for OpenCV
+                    if img.shape[2] == 3:
+                        img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+                    # Save image
+                    cv2.imwrite(f'{prefix}_{str(rand)}_{i}.png', img)
+            elif images_cpu.ndim == 3:  # single image (C, H, W)
+                img = np.transpose(images_cpu, (1, 2, 0))
+                img = (img * 255).astype(np.uint8)
+                if img.shape[2] == 3:
+                    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                cv2.imwrite(f'{prefix}.png', img)
+
         for idx, batch in enumerate(train_dataloader):
             model.train()
+            # check if enviroment variable for debug is set
+            dbg = os.getenv("MAZOEA_DBG_TRAINING_INPUT", None)
+            if dbg and idx == 0:
+                dbg_imgs = batch[0].cpu().numpy()
+                dbg_dump(dbg_imgs, "train")
+
             profiler.add_profiler_step(profiler_options)
             train_reader_cost += time.time() - reader_start
             if idx >= max_iter:
@@ -370,6 +403,9 @@ def train(
                     preds = model(batch)
                 else:
                     preds = model(images)
+                if dbg:
+                    preds_cpu = preds['maps'].cpu().numpy()
+                    dbg_dump(preds_cpu, "preds")
                 loss = loss_class(preds, batch)
                 avg_loss = loss["loss"]
                 avg_loss.backward()

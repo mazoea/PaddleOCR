@@ -34,12 +34,12 @@ echo "Model %MODEL_PATH% comparison to QA baseline completed."
 
 
 echo "----------------------------------------------"
-echo "Results in PP-OCRv5_mobile_det_infer with thresh=0.1, box_thresh=0.3"
-echo "Total files compared: 470"
-echo "Total baseline bboxes: 110682"
-echo "Total output bboxes: 104503"
-echo "Total covered bboxes: 110562"
-echo "Total uncovered bboxes: 120"
-echo "Overall coverage: 99.89%"
+rem echo "Results in PP-OCRv5_mobile_det_infer with thresh=0.1, box_thresh=0.3"
+rem echo "Total files compared: 470"
+rem echo "Total baseline bboxes: 110682"
+rem echo "Total output bboxes: 104503"
+rem echo "Total covered bboxes: 110562"
+rem echo "Total uncovered bboxes: 120"
+rem echo "Overall coverage: 99.89%"
 
 pause

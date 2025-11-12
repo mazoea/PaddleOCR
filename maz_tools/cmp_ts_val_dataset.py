@@ -202,7 +202,8 @@ def compare_files(baseline_data, output_data, overlap_threshold=0.5):
         'total_baseline_bboxes': 0,
         'total_covered_bboxes': 0,
         'total_uncovered_bboxes': 0,
-        'uncovered_by_file': {}
+        'uncovered_by_file': {},
+        'extra_bboxes': 0
     }
     
     # Find matching files
@@ -245,6 +246,11 @@ def compare_files(baseline_data, output_data, overlap_threshold=0.5):
         
         if uncovered_count > 0:
             stats['uncovered_by_file'][baseline_file] = uncovered_count
+
+        # check how many extra bbs are found in output
+        for output_bb in output_bboxes:
+            if not is_bbox_covered(output_bb, output_bboxes, overlap_threshold):
+                stats['extra_bboxes'] += 1
     
     return stats
 
@@ -312,6 +318,7 @@ def main():
     print(f"Total baseline bounding boxes: {stats['total_baseline_bboxes']}")
     print(f"Covered bounding boxes: {stats['total_covered_bboxes']}")
     print(f"Uncovered bounding boxes: {stats['total_uncovered_bboxes']}")
+    print(f"Extra bounding boxes in output: {stats['extra_bboxes']}")
     
     if stats['total_baseline_bboxes'] > 0:
         coverage_rate = 100.0 * stats['total_covered_bboxes'] / stats['total_baseline_bboxes']

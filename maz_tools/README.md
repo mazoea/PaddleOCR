@@ -69,6 +69,100 @@ python test_lambda.py <image_path>
 
 This comparison evaluates how well a newly trained model performs against QA baseline results by measuring bounding box coverage.
 
+### Compare ts_words from raw.json with QA Baseline
+
+#### Script: `cmp_ts_words_with_qa_baseline.py`
+
+This script compares ts_words bounding boxes from raw.json files with QA baseline data. It's useful when you have raw.json files with `ts_words` key containing text spotting results.
+
+#### Usage
+
+```bash
+python cmp_ts_words_with_qa_baseline.py \
+    --raw-json-dir <path-to-raw-json-files> \
+    --baseline-dir <path-to-qa-baseline-dir> \
+    --overlap-threshold 0.5 \
+    --show-details
+```
+
+**Parameters:**
+- `--raw-json-dir`: Directory containing raw.json files with ts_words (default: `d:\projects\issues\jira-515\newst_paddle`)
+- `--baseline-dir`: Directory containing QA baseline JSON files (default: `d:\projects\issues\jira-515\newst_paddle\qa_dp_advent_baseline`)
+- `--overlap-threshold`: Minimum overlap ratio to consider a bbox as covered (default: 0.5)
+- `--show-details`: Show detailed per-file statistics including low coverage files
+
+#### Example
+
+```bash
+python cmp_ts_words_with_qa_baseline.py \
+    --raw-json-dir D:\projects\issues\jira-515\newst_paddle \
+    --baseline-dir D:\projects\issues\jira-515\newst_paddle\qa_dp_advent_baseline \
+    --overlap-threshold 0.5 \
+    --show-details
+```
+
+#### Input Format
+
+**Raw JSON file (*.raw.json):**
+```json
+{
+    "ts_words": [
+        {
+            "bbox": {"x": 100, "y": 200, "w": 150, "h": 30},
+            "text": "Sample text",
+            "score": 0.95
+        },
+        {
+            "bbox": {"x": 300, "y": 250, "w": 200, "h": 40},
+            "text": "Another text",
+            "score": 0.92
+        }
+    ],
+    "img_w": 1240,
+    "img_h": 1754
+}
+```
+
+**QA Baseline JSON:**
+```json
+{
+    "bboxes": [
+        {"x": 100, "y": 200, "w": 150, "h": 30},
+        {"x": 300, "y": 250, "w": 200, "h": 40}
+    ],
+    "deskew": -2.5,
+    "rotation": 0,
+    "page_bbox": {"x": 0, "y": 0, "w": 2480, "h": 3508}
+}
+```
+
+#### Output
+
+The script provides:
+- Total files processed
+- Total baseline bounding boxes
+- Covered bounding boxes (detected in ts_words)
+- Uncovered bounding boxes (missed in ts_words)
+- Overall coverage rate percentage
+- Per-file statistics with `--show-details` flag showing:
+  - Baseline bbox count
+  - TS words bbox count
+  - Covered count
+  - Uncovered count
+  - Coverage percentage
+- List of files with coverage < 80%
+
+#### How It Works
+
+1. Finds matching files between raw.json and baseline directories by filename
+2. Extracts ts_words bboxes from raw.json files
+3. Transforms ts_words bboxes to baseline coordinate system (scaling + deskew)
+4. Compares each baseline bbox against all transformed ts_words bboxes
+5. Uses `bbox.overlap_min()` with threshold to determine coverage
+6. Reports comprehensive statistics
+
+---
+
 ### Creating baseline from QA 
 - it needs to be done only once
 ```bash
