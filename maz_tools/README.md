@@ -530,7 +530,7 @@ Typical performance (depends on GPU):
 Process multiple images with PaddleOCR model:
 
 ```bash
-python batch_process.py \
+python batch_process_invoke_lambda_ts.py \
     --input-dir <path-to-images> \
     --output-dir <path-to-output> \
     --model-dir <path-to-model>

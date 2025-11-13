@@ -34,41 +34,37 @@ os.makedirs('/tmp/paddlex', exist_ok=True)
 os.makedirs('/tmp/paddlehub', exist_ok=True)
 os.makedirs('/tmp/paddle', exist_ok=True)
 
-from paddleocr import TextDetection
-
+from paddleocr import TextRecognition
 
 # Initialize the detector globally for Lambda container reuse
 print("Initializing TextDetection model...")
 TEXT_REC = None
 
 
-def get_detector():
+def get_convertor():
     """Get or initialize the detector (singleton pattern for Lambda reuse)"""
     global TEXT_REC
-    if DETECTOR is None:
+    if TEXT_REC is None:
         print("Initializing TextDetection with Lambda-compatible settings...")
-        model_dir = os.environ.get('MODEL_DIR', './PP-OCRv5_mobile_det_infer')
-        
+        model_dir = os.environ.get('MODEL_DIR', './___PP-OCRv5_mobile_rec_infer')
+        model_name = "PP-OCRv5_server_rec" if 'server' in model_dir else "PP-OCRv5_mobile_rec"
+
         try:
-            DETECTOR = TextDetection(
+            TEXT_REC = TextRecognition(
                 device='cpu',
                 model_dir=model_dir,
-                model_name="PP-OCRv5_mobile_det",
-                limit_side_len=64,
-                limit_type='min',
-                thresh=0.3,
-                box_thresh=0.6,
-                unclip_ratio=1.5,
+                model_name=model_name,
                 cpu_threads=1,
+                mkldnn_cache_capacity=0,
                 enable_mkldnn=False
             )
-            print("TextDetection model initialized successfully")
+            print("TextRecognition model initialized successfully")
         except Exception as e:
-            print(f"Error initializing TextDetection: {e}")
+            print(f"Error initializing TextRecognition: {e}")
             import traceback
             traceback.print_exc()
             raise
-    return DETECTOR
+    return TEXT_REC
 
 
 def detect_text_regions(image_data, return_format='base64'):
@@ -83,7 +79,7 @@ def detect_text_regions(image_data, return_format='base64'):
         dict: Result containing processed image and metadata
     """
     s_handling = time.time()
-    detector = get_detector()
+    convertor = get_convertor()
     
     # Read image if it's a path
     if isinstance(image_data, str):
@@ -94,74 +90,22 @@ def detect_text_regions(image_data, return_format='base64'):
     if img is None:
         raise ValueError("Could not read image data")
     
-    # if image is too large, normalize it that one side has max 1920px
-    max_side_len = 1280
-    h, w, _ = img.shape
-    if max(h, w) > max_side_len:
-        ratio = max_side_len / max(h, w)
-        img = cv2.resize(img, (int(w * ratio), int(h * ratio)), interpolation=cv2.INTER_AREA)
-        #print(f"Resized image to {img.shape[1]}x{img.shape[0]} (width x height)")
-    
-    print(f"Image size: {img.shape[1]}x{img.shape[0]} (width x height)")
-    
     # Perform text detection
     start_time = time.time()
-    results = detector.predict(img)
+    results = convertor.predict(input=img, batch_size=1)
     detection_time = time.time() - start_time
     
-    detected_regions = results[0]
-    num_regions = len(detected_regions['dt_polys'])
-    print(f"Detected {num_regions} text regions in {detection_time:.3f} seconds")
+    word_info = results[0]
+    text, conf = (word_info.get('rec_text', 'no_text'), word_info.get('rec_score', 0.0))
     handling_time = time.time() - s_handling
     print(f"Detection plus model loading time: {handling_time:.3f} seconds")
     
-    # Draw polygons around each detected text region
-    output_image = img.copy()
-
-    bboxes = []
-    for bbox in detected_regions["dt_polys"]:
-        # Convert bbox to numpy array
-        box = np.reshape(np.array(bbox), [-1, 1, 2]).astype(np.int64)
-        # Draw blue polygon (BGR format, so blue is (255, 0, 0))
-        output_image = cv2.polylines(output_image, [box], True, (255, 0, 0), 2)
-        box_points = box.tolist()
-        x_coords = [point[0][0] for point in box_points]
-        y_coords = [point[0][1] for point in box_points]
-
-        # Find min and max for x and y
-        x_min = min(x_coords)
-        x_max = max(x_coords)
-        y_min = min(y_coords)
-        y_max = max(y_coords)
-
-        # Calculate width, height, and center coordinates
-        w = x_max - x_min
-        h = y_max - y_min
-
-        # Create the desired dictionary
-        result_dict = {
-            "h": int(h),
-            "w": int(w),
-            "x": int(x_min),
-            "y": int(y_min)
-        }
-        bboxes.append(result_dict)
-    
-    # Encode the output image
-    _, buffer = cv2.imencode('.png', output_image)
-    
-    if return_format == 'base64':
-        image_encoded = base64.b64encode(buffer).decode('utf-8')
-    else:
-        image_encoded = buffer.tobytes()
-    
     return {
-        'image': image_encoded,
-        'num_regions': num_regions,
+        'text': text,
+        'conf': conf,
         'detection_time': detection_time,
         "handling_time": handling_time,
-        'image_size': {'width': img.shape[1], 'height': img.shape[0]},
-        "bboxes": bboxes
+        'image_size': {'width': img.shape[1], 'height': img.shape[0]}
     }
 
 
@@ -303,12 +247,6 @@ if __name__ == "__main__":
         # Save result image
         if response['statusCode'] == 200:
             body = json.loads(response['body'])
-            result_image = base64.b64decode(body['result']['image'])
-            
-            with open('test_lambda_output.png', 'wb') as f:
-                f.write(result_image)
-            
-            print(f"Result saved to: test_lambda_output.png")
-            print(f"Detected regions: {body['result']['num_regions']}")
+            print(body)
     else:
         print(f"Test image not found: {test_image_path}")

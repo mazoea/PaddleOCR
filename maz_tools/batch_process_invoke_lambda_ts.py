@@ -3,10 +3,10 @@
 Batch process files in parallel chunks using invoke_lambda.py
 
 Usage:
-    python batch_process.py <input_folder> <chunk_size> <output_dir>
+    python batch_process_invoke_lambda_ts.py <input_folder> <chunk_size> <output_dir>
 
 Example:
-    python batch_process.py ./qa_input 5 ./output
+    python batch_process_invoke_lambda_ts.py ./qa_input 5 ./output
 """
 
 import os
@@ -133,9 +133,9 @@ def process_chunk(chunk, output_dir, chunk_idx, total_chunks):
 def main():
     """Main function"""
     if len(sys.argv) != 4:
-        print("Usage: python batch_process.py <input_folder> <chunk_size> <output_dir>")
+        print("Usage: python batch_process_invoke_lambda_ts.py <input_folder> <chunk_size> <output_dir>")
         print("\nExample:")
-        print("  python batch_process.py ./qa_input 5 ./output")
+        print("  python batch_process_invoke_lambda_ts.py ./qa_input 5 ./output")
         print("\nArguments:")
         print("  input_folder : Folder containing images to process")
         print("  chunk_size   : Number of files to process in parallel per chunk")
