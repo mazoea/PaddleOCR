@@ -2,14 +2,14 @@ Global:
   model_name: PP-OCRv5_mobile_det # To use static model for inference.
   debug: false
   use_gpu: true
-  epoch_num: &epoch_num 100
+  epoch_num: &epoch_num 500
   log_smooth_window: 20
   print_batch_step: 5
   save_model_dir: ./output/PP-OCRv5_mobile_det
   save_epoch_step: 10
   eval_batch_step:
   - 0
-  - 6
+  - 50
   cal_metric_during_train: false
   checkpoints:
   pretrained_model: https://paddleocr.bj.bcebos.com/pretrained/PPLCNetV3_x0_75_ocr_det.pdparams
@@ -94,12 +94,12 @@ Train:
         - type: Resize
           args:
             size:
-            - 0.5
+            - 1.0
             - 3
     - EastRandomCropData:
         size:
-        - 640
-        - 640
+        - 1280
+        - 1280
         max_tries: 50
         keep_ratio: true
     - MakeBorderMap:

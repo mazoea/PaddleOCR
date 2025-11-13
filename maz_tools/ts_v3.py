@@ -31,7 +31,7 @@ def only_textspoting(image_path: str, model_dir: str, heat_map: bool, bbs: bool,
     print("Initializing TextDetection model...")
     s0 = time.time()
     detector = TextDetection(device='cpu', model_dir=model_dir, model_name="PP-OCRv5_mobile_det", limit_side_len=64, limit_type='min',
-                             thresh=0.3, box_thresh=0.6, unclip_ratio=1.5, cpu_threads=1, enable_mkldnn=False, mkldnn_cache_capacity=0)
+                             thresh=0.1, box_thresh=0.3, unclip_ratio=1.5, cpu_threads=1, enable_mkldnn=False, mkldnn_cache_capacity=0)
     print("TextDetection model initialized in {:.3f} seconds".format(time.time() - s0))
 
     # 2. Read the image using OpenCV

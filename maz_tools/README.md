@@ -338,6 +338,191 @@ The script reports:
 
 ## Additional Tools
 
+### Evaluate OCR on Dataset
+
+**Script:** `evaluate_ocr_dataset.py`
+
+Evaluate OCR recognition model performance on a labeled dataset with multi-threading support. This script performs OCR on each image and compares results with ground truth to calculate accuracy metrics.
+
+#### Usage
+
+```bash
+python evaluate_ocr_dataset.py \
+    --dataset <path-to-dataset.json> \
+    --model-dir <path-to-recognition-model> \
+    --threads <num-threads> \
+    --show-errors
+```
+
+**Parameters:**
+- `--dataset`: Path to dataset JSON file (default: `d:\projects\dataset-words-OCR\__dataset.words.IBedits.json`)
+- `--model-dir`: Path to OCR recognition model directory (e.g., `PP-OCRv5_mobile_rec`)
+- `--threads`: Number of parallel threads for processing (default: 4)
+- `--output`: Path to save detailed results JSON (optional)
+- `--show-errors`: Show detailed mismatches between predictions and ground truth
+- `--limit`: Limit number of images to process (useful for testing)
+
+#### Example
+
+```bash
+# Evaluate with 8 threads
+python evaluate_ocr_dataset.py \
+    --dataset D:\projects\dataset-words-OCR\__dataset.words.IBedits.json \
+    --model-dir ./PP-OCRv5_mobile_rec \
+    --threads 8 \
+    --show-errors
+
+# Save results to file
+python evaluate_ocr_dataset.py \
+    --dataset dataset.json \
+    --model-dir ./PP-OCRv5_mobile_rec \
+    --output evaluation_results.json
+
+# Test with limited images
+python evaluate_ocr_dataset.py \
+    --dataset dataset.json \
+    --model-dir ./PP-OCRv5_mobile_rec \
+    --limit 100 \
+    --threads 4
+```
+
+#### Dataset Format
+
+The script supports JSON files with the following format:
+
+**Option 1 - Array of objects:**
+```json
+[
+    {
+        "image": "images/word001.png",
+        "gt": "Hello"
+    },
+    {
+        "image": "images/word002.png",
+        "gt": "World"
+    }
+]
+```
+
+**Option 2 - Object with data key:**
+```json
+{
+    "data": [
+        {"image": "images/word001.png", "gt": "Hello"},
+        {"image": "images/word002.png", "gt": "World"}
+    ]
+}
+```
+
+Alternative key names supported:
+- Image path: `"image"`, `"img"`, or `"path"`
+- Ground truth: `"gt"` or `"text"`
+
+#### Output Metrics
+
+The script reports:
+- **Total images processed**
+- **Exact matches**: Number and percentage of perfect matches
+- **Character accuracy**: Percentage of correctly recognized characters
+- **Processing time**: Total and average per image
+- **Detailed errors**: With `--show-errors`, shows first 20 mismatches with ground truth vs. predicted text
+
+#### Multi-Threading
+
+The script uses `ThreadPoolExecutor` for parallel processing:
+- Each thread initializes its own OCR model instance
+- Thread-safe statistics collection using locks
+- Progress bar shows real-time processing status
+- Recommended threads: 4-8 depending on CPU cores and memory
+
+---
+
+### Evaluate OCR on Dataset (GPU with Batching)
+
+**Script:** `evaluate_ocr_dataset_gpu.py`
+
+GPU-accelerated version of the OCR evaluation script. Processes images in batches using CUDA for significantly faster evaluation compared to CPU multi-threading.
+
+#### Usage
+
+```bash
+python evaluate_ocr_dataset_gpu.py \
+    --dataset <path-to-dataset.json> \
+    --model-dir <path-to-recognition-model> \
+    --batch-size <batch-size>
+```
+
+**Parameters:**
+- `--dataset`: Path to dataset JSON file (default: `d:\projects\dataset-words-OCR\__dataset.words.IBedits.json`)
+- `--model-dir`: Path to OCR recognition model directory (e.g., `PP-OCRv5_mobile_rec`)
+- `--batch-size`: Number of images to process in parallel (default: 8)
+- `--output`: Path to save detailed results JSON (optional)
+- `--show-errors`: Show detailed mismatches between predictions and ground truth
+- `--limit`: Limit number of images to process (useful for testing)
+
+#### Example
+
+```bash
+# Evaluate with default batch size (8)
+python evaluate_ocr_dataset_gpu.py \
+    --dataset D:\projects\dataset-words-OCR\__dataset.words.IBedits.json \
+    --model-dir ./PP-OCRv5_mobile_rec
+
+# Use larger batch size for faster processing
+python evaluate_ocr_dataset_gpu.py \
+    --dataset dataset.json \
+    --model-dir ./PP-OCRv5_mobile_rec \
+    --batch-size 16 \
+    --show-errors
+
+# Save results and show errors
+python evaluate_ocr_dataset_gpu.py \
+    --dataset dataset.json \
+    --model-dir ./PP-OCRv5_mobile_rec \
+    --batch-size 8 \
+    --output gpu_results.json \
+    --show-errors
+```
+
+#### Prerequisites
+
+- **CUDA-enabled GPU** with appropriate drivers installed
+- **paddlepaddle-gpu** installed instead of regular paddlepaddle:
+  ```bash
+  # Install paddlepaddle-gpu (CUDA 11.8 example)
+  python -m pip install paddlepaddle-gpu==3.0.0b1 -f https://www.paddlepaddle.org.cn/whl/linux/mkl/avx/stable.html
+  ```
+
+#### Key Features
+
+- **GPU Acceleration**: Uses CUDA for significantly faster inference
+- **Batch Processing**: Processes multiple images simultaneously
+- **Optimized Performance**: Typically 3-5x faster than CPU multi-threading
+- **Same Metrics**: Reports exact matches, character accuracy, and processing times
+- **Progress Tracking**: Real-time progress bar with batch processing status
+
+#### Output Metrics
+
+Same as CPU version, plus:
+- **Average time per batch**: Shows batch processing efficiency
+- **Device**: Confirms GPU (CUDA) usage
+
+#### Performance Comparison
+
+Typical performance (depends on GPU):
+- **CPU (4 threads)**: ~0.3-0.5s per image
+- **GPU (batch size 8)**: ~0.05-0.1s per image
+- **Speedup**: 3-5x faster with GPU batching
+
+#### Batch Size Recommendations
+
+- **Batch size 8**: Good balance for most GPUs (default)
+- **Batch size 16-32**: For high-end GPUs with more VRAM
+- **Batch size 4**: For GPUs with limited memory
+- Monitor GPU memory usage and adjust accordingly
+
+---
+
 ### Batch Processing
 
 **Script:** `batch_process.py`
