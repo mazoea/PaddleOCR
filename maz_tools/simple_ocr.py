@@ -7,7 +7,9 @@ def ocr(img_path, model_dir):
     s = time.time()
     model = TextRecognition(model_name=model_name, device='cpu', cpu_threads=1, enable_mkldnn=False, mkldnn_cache_capacity=0, model_dir=model_dir)
     mode_read = time.time()
-    output = model.predict(input=img_path,  batch_size=1)
+    # We found the gold - return_word_box which return position of letters
+    output = model.predict(input=img_path,  batch_size=1, return_word_box=True)
+    #output = model.predict(input=img_path,  batch_size=1)
     infer_time = time.time() - mode_read
     total_time = time.time() - s
     model_read = mode_read - s

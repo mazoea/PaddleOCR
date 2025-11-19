@@ -17,11 +17,12 @@ os.environ['OPENBLAS_NUM_THREADS'] = '1'  # Limit OpenBLAS threads
 
 from paddleocr import TextDetection
 
-def only_textspoting(image_path: str, model_dir: str, heat_map: bool, bbs: bool, output_path=None):
+def textspotting(image_path: str, model_dir: str, heat_map: bool, bbs: bool, output_path=None, word_output=None):
     # 1. Initialize the TextDetection model
     # You can specify a different model name if needed.
     # For a list of models, refer to the PaddleOCR documentation.
     # 5. Generate output path if not provided
+    file_name = ""
     if output_path is None:
         output_path = f"{image_path}_detection.png"
     else:
@@ -101,6 +102,16 @@ def only_textspoting(image_path: str, model_dir: str, heat_map: bool, bbs: bool,
         }
         bboxes.append(result_dict)
 
+        # if word_output is specified, save each detected word region
+        if word_output is not None:
+            word_img = img[y_min:y_max, x_min:x_max]
+            os.makedirs(word_output, exist_ok=True)
+            # random number to avoid overwriting
+            num = np.random.randint(0, 2e6)
+            img_file_name = file_name + "_"+ str(num)
+            word_image_path = os.path.join(word_output, f"{img_file_name}.png")
+            cv2.imwrite(word_image_path, word_img)
+
     # Save the result image
     cv2.imwrite(output_path, output_image)
     print(f"\nResult saved to: {output_path}")
@@ -128,6 +139,8 @@ def main():
                         type=int, required=False, default=0)
     parser.add_argument('--bbs', help='Print bounding boxes image for debugging',
                         type=int, required=False, default=0)
+    parser.add_argument('--words_output', help='Create image of words and stored into words_output folder',
+                        type=str, required=False, default=None)
     flags = parser.parse_args()
 
     image_path = flags.input
@@ -135,6 +148,7 @@ def main():
     model_dir = flags.model_dir
     heat_map = flags.heat_map != 0
     bbs = flags.bbs != 0
+    words_output = flags.words_output
     
     # Check if input file exists
     if not os.path.exists(image_path):
@@ -142,7 +156,7 @@ def main():
         sys.exit(1)
     
     try:
-        only_textspoting(image_path, model_dir, heat_map, bbs, output_path)
+        textspotting(image_path, model_dir, heat_map, bbs, output_path, words_output)
     except Exception as e:
         print(f"\nError: {str(e)}")
         import traceback

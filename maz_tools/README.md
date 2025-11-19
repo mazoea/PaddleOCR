@@ -523,6 +523,118 @@ Typical performance (depends on GPU):
 
 ---
 
+### OCR Folder to JSON (GPU with Batching)
+
+**Script:** `ocr_folder_to_json_gpu.py`
+
+Process all images in a folder and save OCR results to JSON file using GPU batch processing. Unlike the evaluation scripts, this script doesn't compare with ground truth - it simply OCRs all images and saves the results.
+
+#### Usage
+
+```bash
+python ocr_folder_to_json_gpu.py \
+    --input-dir <folder-with-images> \
+    --output <output.json> \
+    --model-dir <path-to-recognition-model>
+```
+
+**Parameters:**
+- `--input-dir`: Path to folder containing images (required)
+- `--output`: Path to save results JSON file (required)
+- `--model-dir`: Path to OCR recognition model directory (required)
+- `--batch-size`: Number of images to process in parallel (default: 8)
+- `--extensions`: Comma-separated image extensions (default: jpg,jpeg,png,bmp,tiff)
+- `--recursive`: Search images recursively in subdirectories
+- `--limit`: Limit number of images to process (for testing)
+
+#### Example
+
+```bash
+# Basic usage
+python ocr_folder_to_json_gpu.py \
+    --input-dir ./images \
+    --output results.json \
+    --model-dir ./PP-OCRv5_mobile_rec
+
+# Use larger batch size
+python ocr_folder_to_json_gpu.py \
+    --input-dir ./images \
+    --output results.json \
+    --model-dir ./PP-OCRv5_mobile_rec \
+    --batch-size 16
+
+# Process subdirectories recursively
+python ocr_folder_to_json_gpu.py \
+    --input-dir ./images \
+    --output results.json \
+    --model-dir ./PP-OCRv5_mobile_rec \
+    --recursive
+
+# Test with limited images
+python ocr_folder_to_json_gpu.py \
+    --input-dir ./images \
+    --output results.json \
+    --model-dir ./PP-OCRv5_mobile_rec \
+    --limit 100
+```
+
+#### Output Format
+
+The script generates a JSON file with the following structure:
+
+```json
+[
+    {
+        "id": "image1.jpg",
+        "ocred": "recognized text here",
+        "conf": 0.9876,
+        "gt": "recognized text here"
+    },
+    {
+        "id": "image2.png",
+        "ocred": "another text",
+        "conf": 0.9654,
+        "gt": "another text"
+    }
+]
+```
+
+**Fields:**
+- `id`: Image filename
+- `ocred`: OCR recognized text
+- `conf`: Confidence score (0.0 - 1.0)
+- `gt`: Same as `ocred` (for compatibility with other tools)
+
+#### Key Features
+
+- **GPU Acceleration**: Uses CUDA for fast batch processing
+- **Automatic Image Discovery**: Scans folder for supported image formats
+- **Recursive Search**: Optional subdirectory scanning
+- **Progress Tracking**: Real-time progress bar
+- **Error Handling**: Continues processing even if some images fail
+
+#### Use Cases
+
+- **Bulk OCR Processing**: OCR all images in a dataset folder
+- **Dataset Creation**: Generate OCR labels for unlabeled images
+- **Model Testing**: Quickly OCR a folder of test images
+- **Pipeline Integration**: Create JSON output for downstream processing
+
+#### Prerequisites
+
+Same as `evaluate_ocr_dataset_gpu.py`:
+- **CUDA-enabled GPU** with appropriate drivers
+- **paddlepaddle-gpu** installed
+
+#### Performance
+
+Similar performance to `evaluate_ocr_dataset_gpu.py`:
+- Typically 3-5x faster than CPU multi-threading
+- Batch size 8-16 recommended for most GPUs
+- Processes hundreds of images per minute on modern GPUs
+
+---
+
 ### Batch Processing
 
 **Script:** `batch_process.py`

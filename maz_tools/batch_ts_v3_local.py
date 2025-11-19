@@ -36,7 +36,7 @@ def get_image_files(folder_path):
     return sorted(image_files)
 
 
-def process_file(image_path, output_dir, model_dir, heat_map, bbs):
+def process_file(image_path, output_dir, model_dir, heat_map, bbs, words_output):
     """
     Process a single file using invoke_lambda.py
     
@@ -50,7 +50,7 @@ def process_file(image_path, output_dir, model_dir, heat_map, bbs):
     try:
         # Run invoke_lambda.py with the image file
         cmd = [sys.executable, 'ts_v3.py', f'--input={str(image_path)}', f'--output={output_dir}',
-               f'--model_dir={model_dir}', f'--heat_map={str(heat_map)}', f'--bbs={str(bbs)}']
+               f'--model_dir={model_dir}', f'--heat_map={str(heat_map)}', f'--bbs={str(bbs)}', f'--words_output={words_output}']
 
         print(f'[START] Processing: {" ".join(cmd)}')
         
@@ -86,7 +86,7 @@ def process_file(image_path, output_dir, model_dir, heat_map, bbs):
         return image_path, False, str(e)
 
 
-def process_chunk(chunk, output_dir, chunk_idx, total_chunks, model_dir, heat_map, bbs):
+def process_chunk(chunk, output_dir, chunk_idx, total_chunks, model_dir, heat_map, bbs, words_output):
     """
     Process a chunk of files in parallel
     
@@ -109,7 +109,7 @@ def process_chunk(chunk, output_dir, chunk_idx, total_chunks, model_dir, heat_ma
     with ThreadPoolExecutor(max_workers=len(chunk)) as executor:
         # Submit all tasks
         futures = {
-            executor.submit(process_file, img_path, output_dir, model_dir, heat_map, bbs): img_path
+            executor.submit(process_file, img_path, output_dir, model_dir, heat_map, bbs, words_output): img_path
             for img_path in chunk
         }
         
@@ -139,6 +139,8 @@ def main():
                         type=int, required=False, default=0)
     parser.add_argument('--bbs', help='if 1 print bounding boxes image for debugging',
                         type=int, required=False, default=0)
+    parser.add_argument('--words_output', help='Create image of words and stored into words_output folder',
+                        type=str, required=False, default=None)
     parser.add_argument('--threads', help='Number of threads',
                         type=int, required=False, default=8)
 
@@ -150,6 +152,7 @@ def main():
     heat_map = flags.heat_map
     bbs = flags.bbs
     chunk_size = flags.threads
+    words_output = flags.words_output
 
     if chunk_size < 1:
         print("Error: chunk_size must be at least 1")
@@ -184,7 +187,7 @@ def main():
     # Process each chunk
     all_results = []
     for idx, chunk in enumerate(chunks, 1):
-        chunk_results = process_chunk(chunk, output_dir, idx, total_chunks, model_dir, heat_map, bbs)
+        chunk_results = process_chunk(chunk, output_dir, idx, total_chunks, model_dir, heat_map, bbs, words_output)
         all_results.extend(chunk_results)
     
     # Print summary
