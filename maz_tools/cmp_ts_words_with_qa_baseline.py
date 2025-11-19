@@ -83,36 +83,29 @@ def extract_ts_words_bboxes(raw_json_data: Dict) -> Tuple[List[Dict], int, int]:
         Tuple of (bboxes_list, img_width, img_height)
     """
     bboxes = []
-    
+
+    pages = raw_json_data.get('pages', [])
+    if 0 == len(pages):
+        return bboxes, 0, 0
+    page = pages[0]
+    ia = page.get('ia', {})
     # Get ts_words
-    ts_words = raw_json_data.get('ts_words', [])
+    ts_words = ia.get('ts_words', [])
+    if 0 == len(ts_words):
+        return bboxes, 0, 0
     
     # Extract bboxes from ts_words
-    for word in ts_words:
-        if 'bbox' in word:
-            bbox_data = word['bbox']
-            # Handle different bbox formats
-            if isinstance(bbox_data, dict) and all(k in bbox_data for k in ['x', 'y', 'w', 'h']):
-                bboxes.append(bbox_data)
-            elif isinstance(bbox_data, list) and len(bbox_data) == 4:
-                # Convert [x, y, w, h] list to dict
-                bboxes.append({'x': bbox_data[0], 'y': bbox_data[1], 'w': bbox_data[2], 'h': bbox_data[3]})
-    
+    for bb in ts_words:
+        bboxes.append(bbox.default_bbox(bb))
+
     # Get image dimensions
-    img_w = raw_json_data.get('img_w', raw_json_data.get('width', 0))
-    img_h = raw_json_data.get('img_h', raw_json_data.get('height', 0))
-    
-    # Try to get from page_bbox if dimensions not found
-    if img_w == 0 or img_h == 0:
-        page_bbox = raw_json_data.get('page_bbox', {})
-        if page_bbox:
-            img_w = page_bbox.get('w', 0)
-            img_h = page_bbox.get('h', 0)
+    img_w = raw_json_data.get('img_w', page.get('bbox', {}).get('w', 0))
+    img_h = raw_json_data.get('img_h', page.get('bbox', {}).get('h', 0))
     
     return bboxes, img_w, img_h
 
 
-def transform_output_to_baseline(output_bboxes: List[Dict], 
+def transform_output_to_baseline(output_bboxes: List[bbox.default_bbox],
                                   output_img_w: int, 
                                   output_img_h: int,
                                   baseline_page_bbox: Dict,
@@ -145,41 +138,15 @@ def transform_output_to_baseline(output_bboxes: List[Dict],
     baseline_h = baseline_page_bbox['h']
     
     scale_x = baseline_w / output_img_w
-    scale_y = baseline_h / output_img_h
-    
+
     # Convert output bboxes to coords library format and scale
     scaled_bboxes = []
     for bb in output_bboxes:
-        scaled_bb = bbox.default_bbox(
-            x=bb['x'] * scale_x,
-            y=bb['y'] * scale_y,
-            w=bb['w'] * scale_x,
-            h=bb['h'] * scale_y
-        )
-        scaled_bboxes.append(scaled_bb)
-    
-    # Apply deskew transformation if needed
-    if baseline_deskew != 0:
-        try:
-            # Create page bbox for deskew transformation
-            page_bb = bbox.default_bbox(
-                x=baseline_page_bbox['x'],
-                y=baseline_page_bbox['y'],
-                w=baseline_page_bbox['w'],
-                h=baseline_page_bbox['h']
-            )
-            
-            # Apply deskew
-            transformed_bboxes = bbox.deskew_bboxes(
-                scaled_bboxes,
-                page_bb,
-                baseline_deskew
-            )
-            return transformed_bboxes
-        except Exception as e:
-            print(f"Warning: Error applying deskew transformation: {e}")
-            return scaled_bboxes
-    
+        bb.scale(scale_x)  # Scale width and height
+        if baseline_deskew != 0:
+            bb = bbox.deskew_bboxes(baseline_deskew, bbox.default_bbox({'x':0, 'y':0, 'w': output_img_w, 'h': output_img_h}), [bb])[0]
+        scaled_bboxes.append(bb)
+
     return scaled_bboxes
 
 
@@ -264,52 +231,32 @@ def compare_files(baseline_path: str, raw_json_path: str, overlap_threshold: flo
     # Load baseline data
     baseline_data = load_baseline_json(baseline_path)
     baseline_bboxes = baseline_data.get('bboxes', [])
-    baseline_page_bbox = baseline_data.get('page_bbox', {})
-    baseline_deskew = baseline_data.get('deskew', 0)
-    baseline_rotation = baseline_data.get('rotation', 0)
-    
+
     # Load raw.json data
     raw_json_data = load_raw_json(raw_json_path)
     ts_words_bboxes, img_w, img_h = extract_ts_words_bboxes(raw_json_data)
-    
-    # Transform ts_words bboxes to baseline coordinate system
-    transformed_bboxes = transform_output_to_baseline(
-        ts_words_bboxes,
-        img_w,
-        img_h,
-        baseline_page_bbox,
-        baseline_deskew,
-        baseline_rotation
-    )
-    
-    # Convert baseline bboxes to coords library format
-    baseline_bbs = []
-    for bb in baseline_bboxes:
-        baseline_bb = bbox.default_bbox(
-            x=bb['x'],
-            y=bb['y'],
-            w=bb['w'],
-            h=bb['h']
-        )
-        baseline_bbs.append(baseline_bb)
+
+    if 0 == len(ts_words_bboxes):
+        return None
     
     # Compare
     covered_count = 0
     uncovered_count = 0
     
-    for baseline_bb in baseline_bbs:
-        if is_bbox_covered(baseline_bb, transformed_bboxes, overlap_threshold):
+    for baseline_bb in baseline_bboxes:
+        baseline_bb = bbox.default_bbox(baseline_bb)
+        if is_bbox_covered(baseline_bb, ts_words_bboxes, overlap_threshold):
             covered_count += 1
         else:
             uncovered_count += 1
     
     return {
         'filename': os.path.basename(raw_json_path),
-        'total_baseline_bboxes': len(baseline_bbs),
+        'total_baseline_bboxes': len(baseline_bboxes),
         'ts_words_bboxes': len(ts_words_bboxes),
         'covered_bboxes': covered_count,
         'uncovered_bboxes': uncovered_count,
-        'coverage_rate': 100.0 * covered_count / len(baseline_bbs) if len(baseline_bbs) > 0 else 0.0
+        'coverage_rate': 100.0 * covered_count / len(baseline_bboxes) if len(baseline_bboxes) > 0 else 0.0
     }
 
 
@@ -373,6 +320,9 @@ def main():
     for baseline_path, raw_json_path in tqdm(matches, desc="Processing files"):
         try:
             stats = compare_files(baseline_path, raw_json_path, args.overlap_threshold)
+            if stats is None:
+                print(f"\nWarning: Skipping {os.path.basename(raw_json_path)}.")
+                continue
             all_stats.append(stats)
             
             total_baseline_bboxes += stats['total_baseline_bboxes']
