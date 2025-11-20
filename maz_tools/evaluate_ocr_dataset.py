@@ -212,7 +212,15 @@ def process_single_image(item: Dict, model_dir: str, dataset_dir: str, show_erro
             }
         
         # Initialize model (each thread gets its own model instance)
-        model_name = "PP-OCRv5_server_rec" if 'server' in model_dir else "PP-OCRv5_mobile_rec"
+        model_name = "PP-OCRv5_mobile_rec"
+        if "PP-OCRv5_mobile_rec" in model_dir:
+            model_name = "PP-OCRv5_mobile_rec"
+        if "PP-OCRv5_server_rec" in model_dir:
+            model_name = "PP-OCRv5_server_rec"
+        if  "en_PP-OCRv5_mobile_rec" in model_dir:
+            model_name = "en_PP-OCRv5_mobile_rec"
+        if "latin_PP-OCRv5_mobile_rec" in model_dir:
+            model_name = "latin_PP-OCRv5_mobile_rec"
         model = TextRecognition(
             model_name=model_name,
             device='cpu',

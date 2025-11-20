@@ -242,6 +242,8 @@ def compare_files(baseline_path: str, raw_json_path: str, overlap_threshold: flo
     # Compare
     covered_count = 0
     uncovered_count = 0
+
+    uncovered_bbs = []
     
     for baseline_bb in baseline_bboxes:
         baseline_bb = bbox.default_bbox(baseline_bb)
@@ -249,6 +251,20 @@ def compare_files(baseline_path: str, raw_json_path: str, overlap_threshold: flo
             covered_count += 1
         else:
             uncovered_count += 1
+            uncovered_bbs.append(baseline_bb)
+
+    if uncovered_count > 0:
+        dump_path = Path("d:/projects/issues/jira-515/tmp")
+        # show uncovered bboxes
+        png_file = baseline_path[:-len('.json')]+ '.png'
+        from PIL import Image, ImageDraw
+        img = Image.open(png_file).convert('RGB')
+        draw = ImageDraw.Draw(img)
+        for bb in uncovered_bbs:
+            draw.rectangle([bb.xl, bb.yt, bb.xr, bb.yb], outline='blue', width=4)
+        file_name = os.path.basename(png_file)
+        dump_png_path = os.path.join(dump_path,f"{file_name}.uncovered.png")
+        img.save(f"{dump_png_path}.uncovered.png")
     
     return {
         'filename': os.path.basename(raw_json_path),

@@ -322,8 +322,17 @@ def main():
     
     # Initialize model with GPU
     print("Initializing OCR model with GPU...")
-    model_name = "PP-OCRv5_server_rec" if 'server' in args.model_dir else "PP-OCRv5_mobile_rec"
-    
+    model_dir = args.model_dir
+    model_name = "PP-OCRv5_mobile_rec"
+    if "PP-OCRv5_mobile_rec" in model_dir:
+        model_name = "PP-OCRv5_mobile_rec"
+    if "PP-OCRv5_server_rec" in model_dir:
+        model_name = "PP-OCRv5_server_rec"
+    if  "en_PP-OCRv5_mobile_rec" in model_dir:
+        model_name = "en_PP-OCRv5_mobile_rec"
+    if "latin_PP-OCRv5_mobile_rec" in model_dir:
+        model_name = "latin_PP-OCRv5_mobile_rec"
+
     try:
         model = TextRecognition(
             model_name=model_name,

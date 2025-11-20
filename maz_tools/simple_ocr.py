@@ -3,7 +3,14 @@ import argparse
 from paddleocr import TextRecognition
 
 def ocr(img_path, model_dir):
-    model_name = "PP-OCRv5_server_rec" if 'server' in model_dir else "PP-OCRv5_mobile_rec"
+    if "PP-OCRv5_mobile_rec" in model_dir:
+        model_name = "PP-OCRv5_mobile_rec"
+    if "PP-OCRv5_server_rec" in model_dir:
+        model_name = "PP-OCRv5_server_rec"
+    if  "en_PP-OCRv5_mobile_rec" in model_dir:
+        model_name = "en_PP-OCRv5_mobile_rec"
+    if "latin_PP-OCRv5_mobile_rec" in model_dir:
+        model_name = "latin_PP-OCRv5_mobile_rec"
     s = time.time()
     model = TextRecognition(model_name=model_name, device='cpu', cpu_threads=1, enable_mkldnn=False, mkldnn_cache_capacity=0, model_dir=model_dir)
     mode_read = time.time()
