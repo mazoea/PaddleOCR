@@ -50,11 +50,13 @@ COPY lambda_handler_OCR.py ${LAMBDA_TASK_ROOT}/
 # Optional: Pre-download the model (uncomment if you have the model files)
 # This reduces cold start time
 #COPY PP-OCRv5_server_det/ ${LAMBDA_TASK_ROOT}/PP-OCRv5_server_det/
-COPY PP-OCRv5_mobile_rec_infer/ ${LAMBDA_TASK_ROOT}/PP-OCRv5_mobile_rec_infer/
+#COPY PP-OCRv5_mobile_rec_infer/ ${LAMBDA_TASK_ROOT}/PP-OCRv5_mobile_rec_infer/
+COPY latin_PP-OCRv5_mobile_rec_infer/ ${LAMBDA_TASK_ROOT}/latin_PP-OCRv5_mobile_rec_infer/
 
 # Set environment variables
 #ENV MODEL_DIR=${LAMBDA_TASK_ROOT}/PP-OCRv5_server_det
-ENV MODEL_DIR=${LAMBDA_TASK_ROOT}/PP-OCRv5_mobile_rec_infer
+#ENV MODEL_DIR=${LAMBDA_TASK_ROOT}/PP-OCRv5_mobile_rec_infer
+ENV MODEL_DIR=${LAMBDA_TASK_ROOT}/latin_PP-OCRv5_mobile_rec_infer
 ENV PYTHONUNBUFFERED=1
 
 # Set the CMD to your handler

@@ -47,7 +47,14 @@ def get_convertor():
     if TEXT_REC is None:
         print("Initializing TextDetection with Lambda-compatible settings...")
         model_dir = os.environ.get('MODEL_DIR', './___PP-OCRv5_mobile_rec_infer')
-        model_name = "PP-OCRv5_server_rec" if 'server' in model_dir else "PP-OCRv5_mobile_rec"
+        if "PP-OCRv5_mobile_rec" in model_dir:
+            model_name = "PP-OCRv5_mobile_rec"
+        if "PP-OCRv5_server_rec" in model_dir:
+            model_name = "PP-OCRv5_server_rec"
+        if "en_PP-OCRv5_mobile_rec" in model_dir:
+            model_name = "en_PP-OCRv5_mobile_rec"
+        if "latin_PP-OCRv5_mobile_rec" in model_dir:
+            model_name = "latin_PP-OCRv5_mobile_rec"
 
         try:
             TEXT_REC = TextRecognition(

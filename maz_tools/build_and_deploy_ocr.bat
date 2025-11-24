@@ -29,7 +29,7 @@ if "%AWS_ACCOUNT_ID%"=="your-account-id" (
     exit /b 1
 )
 
-cp -r ../___PP-OCRv5_mobile_rec_infer ./PP-OCRv5_mobile_rec_infer
+cp -r ../___latin_PP-OCRv5_mobile_rec_infer ./latin_PP-OCRv5_mobile_rec_infer
 
 REM Step 1: Build the Docker image
 echo.
