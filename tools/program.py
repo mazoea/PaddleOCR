@@ -310,40 +310,81 @@ def train(
             )
 
         def dbg_dump(images_cpu, prefix):
+            """
+            Fixed version of dbg_dump that correctly handles visualization of training data.
+
+            Args:
+                images_cpu: numpy array of images/masks
+                    - 4D: (N, C, H, W) - batch of multi-channel images
+                    - 3D: (N, H, W) - batch of single-channel images/masks
+                    - 2D: (H, W) - single image/mask
+                prefix: string prefix for output filenames
+            """
             rand = np.random.randint(0, 10000)
-            if images_cpu.ndim == 4:  # batch of images (N, C, H, W)
+
+            def normalize_to_uint8(img):
+                """Normalize image to [0, 255] range using actual min/max values."""
+                img_min = img.min()
+                img_max = img.max()
+                if img_max > img_min:
+                    img = (img - img_min) / (img_max - img_min) * 255
+                else:
+                    img = np.zeros_like(img)
+                return img.astype(np.uint8)
+
+            if images_cpu.ndim == 4:  # Batch of multi-channel images (N, C, H, W)
                 for i, img in enumerate(images_cpu):
                     # Convert from (C, H, W) to (H, W, C)
                     img = np.transpose(img, (1, 2, 0))
 
-                    # Denormalize if needed (assuming normalized to [0, 1])
-                    img = (img * 255).astype(np.uint8)
+                    # Normalize to uint8
+                    img = normalize_to_uint8(img)
 
-                    # If grayscale, remove channel dimension
+                    # Handle different channel counts
                     if img.shape[2] == 1:
+                        # Single channel - remove channel dimension
                         img = img.squeeze(2)
-
-                    # Convert RGB to BGR for OpenCV
-                    if img.shape[2] == 3:
+                    elif img.shape[2] == 3:
+                        # RGB image - convert to BGR for OpenCV
                         img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                    elif img.shape[2] == 2:
+                        # Two channels - save first channel (e.g., threshold map)
+                        img = img[:, :, 0]
+                    else:
+                        # More than 3 channels - save first channel
+                        img = img[:, :, 0]
 
                     # Save image
                     cv2.imwrite(f'{prefix}_{str(rand)}_{i}.png', img)
-            elif images_cpu.ndim == 3:  # single image (C, H, W)
-                img = np.transpose(images_cpu, (1, 2, 0))
-                img = (img * 255).astype(np.uint8)
-                if img.shape[2] == 3:
-                    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-                cv2.imwrite(f'{prefix}.png', img)
+
+            elif images_cpu.ndim == 3:  # Batch of single-channel images (N, H, W)
+                for i, img in enumerate(images_cpu):
+                    # BUG FIX: Use `img` not `images_cpu`
+                    # Original: img = np.transpose(images_cpu, (1, 2, 0))
+                    # Fixed: img is already (H, W), no transpose needed
+
+                    # Normalize to uint8
+                    img = normalize_to_uint8(img)
+
+                    # Save image (already in correct format for grayscale)
+                    cv2.imwrite(f'{prefix}_{str(rand)}_{i}.png', img)
+
+            elif images_cpu.ndim == 2:  # Single image (H, W)
+                img = normalize_to_uint8(images_cpu)
+                cv2.imwrite(f'{prefix}_{str(rand)}_0.png', img)
+
+            else:
+                #print(f"Warning: Unsupported tensor shape {images_cpu.shape} for {prefix}")
+                pass
 
         for idx, batch in enumerate(train_dataloader):
-            model.train()
             # check if enviroment variable for debug is set
             dbg = os.getenv("MAZOEA_DBG_TRAINING_INPUT", None)
             if dbg and idx == 0:
                 dbg_imgs = batch[0].cpu().numpy()
                 dbg_dump(dbg_imgs, "train")
 
+            model.train()
             profiler.add_profiler_step(profiler_options)
             train_reader_cost += time.time() - reader_start
             if idx >= max_iter:
@@ -406,6 +447,15 @@ def train(
                 if dbg:
                     preds_cpu = preds['maps'].cpu().numpy()
                     dbg_dump(preds_cpu, "preds")
+                    label_threshold_map = batch[1].cpu().numpy()
+                    dbg_dump(label_threshold_map, "label_threshold_map")
+                    label_threshold_mask = batch[2].cpu().numpy()
+                    dbg_dump(label_threshold_mask, "label_threshold_mask")
+                    label_shrink_map = batch[3].cpu().numpy()
+                    dbg_dump(label_shrink_map, "label_shrink_map")
+                    label_shrink_mask = batch[4].cpu().numpy()
+                    dbg_dump(label_shrink_mask, "label_shrink_mask")
+
                 loss = loss_class(preds, batch)
                 avg_loss = loss["loss"]
                 avg_loss.backward()
