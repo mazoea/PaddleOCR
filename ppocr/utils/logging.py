@@ -62,6 +62,7 @@ def get_logger(name="ppocr", log_file=None, log_level=logging.DEBUG, log_ranks="
         os.makedirs(log_file_folder, exist_ok=True)
         file_handler = logging.FileHandler(log_file, "a")
         file_handler.setFormatter(formatter)
+        file_handler.setLevel(logging.DEBUG)
         logger.addHandler(file_handler)
 
     if isinstance(log_ranks, str):

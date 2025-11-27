@@ -20,6 +20,7 @@ import errno
 import os
 import pickle
 import json
+import shutil
 from packaging import version
 
 import paddle
@@ -160,7 +161,7 @@ def load_model(config, model, optimizer=None, model_type="det"):
             best_model_dict["acc"] = 0.0
             if "epoch" in states_dict:
                 best_model_dict["start_epoch"] = states_dict["epoch"] + 1
-        logger.info("resume from {}".format(checkpoints))
+        logger.critical("resume from {}".format(checkpoints))
     elif pretrained_model:
         is_float16 = load_pretrained_params(model, pretrained_model)
     else:
@@ -226,12 +227,17 @@ def save_model(
     """
     _mkdir_if_not_exist(model_path, logger)
     model_prefix = os.path.join(model_path, prefix)
+    model_gen_prefix = None
+    if "global_step" in kwargs and "metric" in kwargs:
+        model_gen_prefix = os.path.join(
+            model_path, f"step_{kwargs['global_step']:06d}.metric_{kwargs['metric']:6.4f}")
 
     if prefix == "best_accuracy":
         best_model_path = os.path.join(model_path, "best_model")
         _mkdir_if_not_exist(best_model_path, logger)
 
     paddle.save(optimizer.state_dict(), model_prefix + ".pdopt")
+
     if prefix == "best_accuracy":
         paddle.save(
             optimizer.state_dict(), os.path.join(best_model_path, "model.pdopt")
@@ -242,6 +248,9 @@ def save_model(
     ]["algorithm"] not in ["SDMGR"]
     if is_nlp_model is not True:
         paddle.save(model.state_dict(), model_prefix + ".pdparams")
+        if model_gen_prefix is not None:
+            shutil.copyfile(model_prefix + ".pdparams", model_gen_prefix + ".pdparams")
+
         metric_prefix = model_prefix
 
         if prefix == "best_accuracy":
@@ -274,6 +283,16 @@ def save_model(
     # save metric and config
     with open(metric_prefix + ".states", "wb") as f:
         pickle.dump(kwargs, f, protocol=2)
+
+    if model_gen_prefix is not None:
+        for suffix in (".pdparams", ".pdopt", ".states"):
+            if not os.path.exists(model_prefix + suffix):
+                continue
+            try:
+                shutil.copyfile(model_prefix + suffix, model_gen_prefix + suffix)
+            except Exception as e:
+                logger.error(f"Error copying file {model_prefix + suffix} to {model_gen_prefix + suffix}: {e}")
+
     if is_best:
         logger.info("save best model is to {}".format(model_prefix))
     else:

@@ -7,7 +7,7 @@ Global:
   print_batch_step: 10
   save_model_dir: ./output/latin_rec_ppocr_v5
   save_epoch_step: 10
-  eval_batch_step: [0, 500]
+  eval_batch_step: [0, 100]
   cal_metric_during_train: true
   pretrained_model: PP-OCRv5_mobile_rec_pretrained.pdparams
   checkpoints:
@@ -139,5 +139,5 @@ Eval:
   loader:
     shuffle: false
     drop_last: false
-    batch_size_per_card: 1
+    batch_size_per_card: 128
     num_workers: 4

@@ -11,6 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
+_logger = logging.getLogger('rec_metric')
 
 from rapidfuzz.distance import Levenshtein
 from difflib import SequenceMatcher
@@ -41,6 +43,7 @@ class RecMetric(object):
         correct_num = 0
         all_num = 0
         norm_edit_dis = 0.0
+        diffs = []
         for (pred, pred_conf), (target, _) in zip(preds, labels):
             if self.ignore_space:
                 pred = pred.replace(" ", "")
@@ -51,13 +54,16 @@ class RecMetric(object):
             norm_edit_dis += Levenshtein.normalized_distance(pred, target)
             if pred == target:
                 correct_num += 1
+            diffs.append((pred, target, pred_conf))
             all_num += 1
+
         self.correct_num += correct_num
         self.all_num += all_num
         self.norm_edit_dis += norm_edit_dis
         return {
             "acc": correct_num / (all_num + self.eps),
             "norm_edit_dis": 1 - norm_edit_dis / (all_num + self.eps),
+            "diffs": diffs,
         }
 
     def get_metric(self):

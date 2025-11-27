@@ -78,6 +78,8 @@ def textspotting(image_path: str, model_dir: str, heat_map: bool, bbs: bool, out
         box = np.reshape(np.array(bbox), [-1, 1, 2]).astype(np.int64)
         # Draw blue polygon (BGR format, so blue is (255, 0, 0))
         output_image = cv2.polylines(np.array(output_image), [box], True, (255, 0, 0), 2)
+        # make fill polyhon with white color
+        # output_image = cv2.fillPoly(np.array(output_image), [box], (255, 255, 255))
 
         box_points = box.tolist()
         x_coords = [point[0][0] for point in box_points]

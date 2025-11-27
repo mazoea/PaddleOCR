@@ -1,0 +1,5 @@
+.env*
+*.pdopt
+*.pdparams
+*.states
+*.log
