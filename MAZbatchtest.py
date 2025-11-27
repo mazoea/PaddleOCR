@@ -1,16 +1,17 @@
 """
-| Dataset          | en_PP-OCRv3_rec_train  | v3_en_mobile_2024.04.02 |
+| Dataset          | v3_en_mobile_2024.04.02 | en_PP-OCRv5_mobile_rec |
 |------------------|-----------------------:|------------------------:|
-| DOCS-BIO         | 0.9650                 | 0.9470                  |
-| ICDAR2013        | 0.9948                 | 0.9375                  |
-| IBSimple         | 0.9483                 | 0.9894                  |
-| Invoices         | 0.9899                 | 0.9941                  |
-| funSD            | 0.9887                 | 0.9761                  |
-| xFund            | 0.9603                 | 0.9882                  |
-| IBedits          | 0.8061                 | 0.9719                  |
-| cord-v2          | 0.8233                 | 0.9588                  |
-| genText          | 0.5077                 | 0.9726                  |
-| hiertext         | 0.8349                 | 0.7169                  |
+| DOCS-BIO         | 0.9470                 | 0.9633                  |
+| ICDAR2013        | 0.9375                 | 0.9888                  |
+| IBSimple         | 0.9894                 | 0.9676                  |
+| Invoices         | 0.9941                 | 0.8568                  |
+| funSD            | 0.9761                 | 0.9858                  |
+| xFund            | 0.9882                 | 0.9643                  |
+| IBedits          | 0.9719                 | 0.9792                  |
+| cord-v2          | 0.9588                 | 0.9526                  |
+| genText          | 0.9726                 | 0.8151                  |
+| hiertext         | 0.7169                 | 0.8795                  |
+| zebra-lines-lite | 0.0                    | 0.5322                  |
 
 
 Notes:
@@ -37,6 +38,7 @@ env= {
         "eval.cord-v2.yml",
         "eval.genText.yml",
         "eval.hiertext.yml",
+        "eval.zebra-lines-lite.yml",
     ]
 }
 

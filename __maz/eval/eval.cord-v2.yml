@@ -1,6 +1,6 @@
 Global:
   model_name: en_PP-OCRv5_mobile_rec # To use static model for inference.
-  debug: false
+  debug: true
   use_gpu: true
   epoch_num: 75
   log_smooth_window: 20
@@ -126,14 +126,13 @@ Eval:
         img_mode: BGR
         channel_first: false
     - MultiLabelEncode:
-        gtc_encode: NRTRLabelEncode
     - RecResizeImg:
         image_shape: [3, 48, 320]
     - KeepKeys:
         keep_keys:
         - image
         - label_ctc
-        - label_gtc
+        - label_sar
         - length
         - valid_ratio
   loader:

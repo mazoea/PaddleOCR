@@ -48,6 +48,16 @@ class MazDatasetRaw:
 
                     data = self.load_from_json(js_file, os.path.dirname(js_file))
 
+                    # Validate dataset after loading
+                    valid_data = []
+                    for d in data:
+                        if os.path.exists(d["path"]):
+                            valid_data.append(d)
+                        else:
+                            logger.warning(f"Removing invalid entry: {d['path']}")
+                    self.logger.info(f"Valid samples: {len(valid_data)}")
+                    data = valid_data
+
                     # if we load multiple datasets and we want to limit the number of samples
                     # e.g., because of Eval
                     limit_dataset = max(limit_dataset_all,

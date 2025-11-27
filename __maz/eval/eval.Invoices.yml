@@ -1,6 +1,6 @@
 Global:
   model_name: en_PP-OCRv5_mobile_rec # To use static model for inference.
-  debug: false
+  debug: true
   use_gpu: true
   epoch_num: 75
   log_smooth_window: 20
@@ -117,23 +117,22 @@ Eval:
   dataset:
     name: MazDataset
     data_dir: d:/projects/dataset-words-OCR/__woec.INVOICES.json.PAD.FILTERED.json
+    ratio: [0.0, 1.0]
     static_max_workers: 4
     static_mode_load: true
     # static_mode_save: true
-    ratio: [0.0, 1.0]
     transforms:
     - DecodeImage:
         img_mode: BGR
         channel_first: false
     - MultiLabelEncode:
-        gtc_encode: NRTRLabelEncode
     - RecResizeImg:
         image_shape: [3, 48, 320]
     - KeepKeys:
         keep_keys:
         - image
         - label_ctc
-        - label_gtc
+        - label_sar
         - length
         - valid_ratio
   loader:
