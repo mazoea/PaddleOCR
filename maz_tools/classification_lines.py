@@ -256,8 +256,10 @@ def process(input_path: str, input_bbs: str, debug: bool = False):
     res["found_zebra_lines"] = len(shaded_lines)
     res["total_lines"] = len(lines)
 
-    for k, v in res.items():
-        _logger.critical(f"{k}: {v}")
+    if debug:
+        for k, v in res.items():
+            _logger.critical(f"{k}: {v}")
+    return res
 
 
 
