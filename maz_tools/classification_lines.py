@@ -1,12 +1,14 @@
 import os
 import sys
 import json
-import copy
+import argparse
 import numpy as np
 import cv2
+import logging
 
 from coords import bbox
 
+_logger = logging.getLogger("classification_lines")
 
 def classify_page(shaded_lines: list, lines: dict, page_h, page_w) -> bool:
     """
@@ -60,15 +62,17 @@ def classify_page(shaded_lines: list, lines: dict, page_h, page_w) -> bool:
     return False
 
 
-def analyze_gap_region(gap_roi: np.ndarray):
+def analyze_gap_region(gap_roi: np.ndarray, debug):
     if gap_roi.size == 0:
         return False, False
 
     # Threshold to binary
-    cv2.imwrite("d:/tmp/gap_roi.png", gap_roi)
+    if debug:
+        cv2.imwrite("d:/tmp/gap_roi.png", gap_roi)
     #_, binary = cv2.threshold(gap_roi, 240, 255, cv2.THRESH_BINARY_INV)
     _, binary = cv2.threshold(gap_roi, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
-    cv2.imwrite("d:/tmp/gap_roi.png", 255-binary)
+    if debug:
+        cv2.imwrite("d:/tmp/gap_roi.png", 255-binary)
 
     # Calculate the percentage of dark pixels
     dark_pixels = np.sum(binary == 255)
@@ -83,7 +87,8 @@ def analyze_gap_region(gap_roi: np.ndarray):
         dilated_img = cv2.dilate(binary,  np.ones((3, 3), np.uint8), iterations=1)
         kernel = np.ones((3,3), np.uint8)
         dilated_img = cv2.morphologyEx(dilated_img, cv2.MORPH_CLOSE, kernel)
-        cv2.imwrite("d:/tmp/gap_roi.png", 255-dilated_img)
+        if debug:
+            cv2.imwrite("d:/tmp/gap_roi.png", 255-dilated_img)
 
         # try to detect white rectangles, because if there are in, there will be no fragment nor noise
         contours, _ = cv2.findContours(255-dilated_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -114,7 +119,8 @@ def analyze_gap_region(gap_roi: np.ndarray):
         dilated_img = cv2.dilate(binary,  np.ones((h, w), np.uint8), iterations=1)
         kernel = np.ones((3,3), np.uint8)
         dilated_img = cv2.morphologyEx(dilated_img, cv2.MORPH_CLOSE, kernel)
-        cv2.imwrite("d:/tmp/gap_roi.png", 255-dilated_img)
+        if debug:
+            cv2.imwrite("d:/tmp/gap_roi.png", 255-dilated_img)
 
         # count dark pixels again
         dark_pixels = np.sum(dilated_img == 255)
@@ -140,11 +146,13 @@ def analyze_gap_region(gap_roi: np.ndarray):
 
     return is_fragment, is_noise
 
-def process(input_path: str, input_bbs: str):
+def process(input_path: str, input_bbs: str, debug: bool = False):
+
+    res = {"input_path": input_path, "zebra_doc": False, "found_zebra_lines": 0, "total_lines": 0}
     # Load image
     img = cv2.imread(input_path, cv2.IMREAD_GRAYSCALE)
     if img is None:
-        print(f"Error: Unable to load image '{input_path}'")
+        _logger.error(f"Error: Unable to load image '{input_path}'")
         return
 
     # Load bounding boxes
@@ -198,7 +206,8 @@ def process(input_path: str, input_bbs: str):
         l_bb = bbox.union(*line_bbs)
         x1_cut, y1_cut, x2_cut, y2_cut = l_bb.xl, l_bb.yt, l_bb.xr, l_bb.yb
         line_img = img[int(y1_cut):int(y2_cut), int(x1_cut):int(x2_cut)]
-        cv2.imwrite("d:/tmp/gap_roi.png", line_img)
+        if debug:
+            cv2.imwrite("d:/tmp/gap_roi.png", line_img)
 
         # sort bbs by xl
         line_bbs = sorted(line_bbs, key=lambda bb: bb.xl)
@@ -217,7 +226,7 @@ def process(input_path: str, input_bbs: str):
             if gap_x2 <= gap_x1 or diff_x <= tol_x:
                 continue  # no gap
             gap_roi = img[gap_y1:gap_y2, gap_x1:gap_x2]
-            is_frag, is_noise = analyze_gap_region(gap_roi)
+            is_frag, is_noise = analyze_gap_region(gap_roi, debug)
             # get width of gap
             gap_width = gap_x2 - gap_x1
             if is_frag or is_noise:
@@ -229,36 +238,44 @@ def process(input_path: str, input_bbs: str):
         if 0 < total_gaps_w:
             dirty_ratio = dirty_gaps_w / total_gaps_w
             if 0.5 < dirty_ratio:
-                print(f"Line {i} classified as shaded line (dirty ratio: {dirty_ratio:.2f})")
+                if debug:
+                    _logger.debug(f"Line {i} classified as shaded line (dirty ratio: {dirty_ratio:.2f})")
                 shaded_lines.append(bbox.union(*line_bbs))
 
-    for i, line_bb in enumerate(shaded_lines):
-        x1, y1, x2, y2 = int(line_bb.xl), int(line_bb.yt), int(line_bb.xr), int(line_bb.yb)
-        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        cv2.putText(img, f"Line {i}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-    output_viz_path = f"{input_path}_lines_viz_after.png"
-    cv2.imwrite(output_viz_path, img)
+    if debug:
+        for i, line_bb in enumerate(shaded_lines):
+            x1, y1, x2, y2 = int(line_bb.xl), int(line_bb.yt), int(line_bb.xr), int(line_bb.yb)
+            cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(img, f"Line {i}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        output_viz_path = f"{input_path}_lines_viz_after.png"
+        cv2.imwrite(output_viz_path, img)
 
     # lets classify page
     is_ = classify_page(shaded_lines, lines, h_img, w_img)
+    res["zebra_doc"] = is_
+    res["found_zebra_lines"] = len(shaded_lines)
+    res["total_lines"] = len(lines)
 
-    if is_:
-        print(f"Page '{input_path}' classified as containing zebra lines.")
+    for k, v in res.items():
+        _logger.critical(f"{k}: {v}")
 
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("Usage: python analysis.py <input_image_path>")
-        print("\nExample:")
-        print("  python analysis.py image.png")
-        sys.exit(1)
-    input_path = sys.argv[1]
+    arg_parser = argparse.ArgumentParser(description="Analyze image for zebra lines.")
+    arg_parser.add_argument("--input_path", type=str, help="Path to the input image and bbs is expected near by with _detection.png.bbs.json.")
+    arg_parser.add_argument("--debug", type=bool, default=False, help="Enable debug mode.", required=False)
+
+    args = arg_parser.parse_args()
+
+    input_path = args.input_path
+    debug = args.debug
+
     input_bbs = f"{input_path}_detection.png.bbs.json"
 
     # Check if input file exists
     if not os.path.exists(input_path) and not os.path.exists(input_bbs):
-        print(f"Error: Input files '{input_path}' does not exist!")
+        _logger.error(f"Error: Input files '{input_path}' does not exist!")
         sys.exit(1)
 
-    process(input_path, input_bbs)
+    process(input_path, input_bbs, debug)
