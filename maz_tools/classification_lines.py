@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 import logging
 
+from typing import Optional
 from coords import bbox
 
 _logger = logging.getLogger("classification_lines")
@@ -146,7 +147,44 @@ def analyze_gap_region(gap_roi: np.ndarray, debug):
 
     return is_fragment, is_noise
 
-def process(input_path: str, input_bbs: str, debug: bool = False):
+def line_process(img: np.ndarray, line_bbs: list, debug: bool = False):
+    l_bb = bbox.union(*line_bbs)
+    h = l_bb.height
+    # sort bbs by xl
+    line_bbs = sorted(line_bbs, key=lambda bb: bb.xl)
+    # analyze gaps between bbs
+    clean_gaps_w = 0
+    dirty_gaps_w = 0
+    for j in range(len(line_bbs) - 1):
+        bb1 = line_bbs[j]
+        bb2 = line_bbs[j + 1]
+        gap_x1 = int(bb1.xr)
+        gap_x2 = int(bb2.xl)
+        gap_y1 = int(min(bb1.yt, bb2.yt))
+        gap_y2 = int(max(bb1.yb, bb2.yb))
+        diff_x = gap_x2 - gap_x1
+        tol_x = h * 0.5
+        if gap_x2 <= gap_x1 or diff_x <= tol_x:
+            continue  # no gap
+        gap_roi = img[gap_y1:gap_y2, gap_x1:gap_x2]
+        is_frag, is_noise = analyze_gap_region(gap_roi, debug)
+        # get width of gap
+        gap_width = gap_x2 - gap_x1
+        if is_frag or is_noise:
+            dirty_gaps_w += gap_width
+        else:
+            clean_gaps_w += gap_width
+    # calcul ratio
+    dirty_ratio = 0.
+    total_gaps_w = clean_gaps_w + dirty_gaps_w
+    if 0 < total_gaps_w:
+        dirty_ratio = dirty_gaps_w / total_gaps_w
+        if 0.5 < dirty_ratio:
+            return l_bb, dirty_ratio
+    return None, dirty_ratio
+
+
+def process(input_path: str, input_bbs: str, debug: bool = False, _not_used=None):
 
     res = {"input_path": input_path, "zebra_doc": False, "found_zebra_lines": 0, "total_lines": 0}
     # Load image
@@ -155,10 +193,8 @@ def process(input_path: str, input_bbs: str, debug: bool = False):
         _logger.error(f"Error: Unable to load image '{input_path}'")
         return
 
-    # Load bounding boxes
     with open(input_bbs, 'r') as f:
         bbs_data = json.load(f)
-
     bbs = [bbox.default_bbox(d) for d in bbs_data["bboxes"]]
 
     # scale bbs to image size
@@ -174,6 +210,9 @@ def process(input_path: str, input_bbs: str, debug: bool = False):
     lines = {}
     for bb in bbs:
         mid_y = bb.mid_y()
+        # check if bb is not vertical
+        if bb.height > bb.width * 1.2:
+            continue
         found_line = False
         for line_key in lines:
             line_bbs = lines[line_key]
@@ -202,45 +241,17 @@ def process(input_path: str, input_bbs: str, debug: bool = False):
         # check if there are at least 2 bbs to analyze gaps
         if len(line_bbs) < 2:
             continue
-        h = bbox.union(*line_bbs).height
         l_bb = bbox.union(*line_bbs)
         x1_cut, y1_cut, x2_cut, y2_cut = l_bb.xl, l_bb.yt, l_bb.xr, l_bb.yb
         line_img = img[int(y1_cut):int(y2_cut), int(x1_cut):int(x2_cut)]
         if debug:
             cv2.imwrite("d:/tmp/gap_roi.png", line_img)
 
-        # sort bbs by xl
-        line_bbs = sorted(line_bbs, key=lambda bb: bb.xl)
-        # analyze gaps between bbs
-        clean_gaps_w = 0
-        dirty_gaps_w = 0
-        for j in range(len(line_bbs) - 1):
-            bb1 = line_bbs[j]
-            bb2 = line_bbs[j + 1]
-            gap_x1 = int(bb1.xr)
-            gap_x2 = int(bb2.xl)
-            gap_y1 = int(min(bb1.yt, bb2.yt))
-            gap_y2 = int(max(bb1.yb, bb2.yb))
-            diff_x = gap_x2 - gap_x1
-            tol_x = h* 0.5
-            if gap_x2 <= gap_x1 or diff_x <= tol_x:
-                continue  # no gap
-            gap_roi = img[gap_y1:gap_y2, gap_x1:gap_x2]
-            is_frag, is_noise = analyze_gap_region(gap_roi, debug)
-            # get width of gap
-            gap_width = gap_x2 - gap_x1
-            if is_frag or is_noise:
-                dirty_gaps_w += gap_width
-            else:
-                clean_gaps_w += gap_width
-        # calcul ratio
-        total_gaps_w = clean_gaps_w + dirty_gaps_w
-        if 0 < total_gaps_w:
-            dirty_ratio = dirty_gaps_w / total_gaps_w
-            if 0.5 < dirty_ratio:
-                if debug:
-                    _logger.debug(f"Line {i} classified as shaded line (dirty ratio: {dirty_ratio:.2f})")
-                shaded_lines.append(bbox.union(*line_bbs))
+        ret, dirty_ratio = line_process(img,  line_bbs)
+        if ret:
+            if debug:
+                _logger.debug(f"Line {i} classified as shaded line (dirty ratio: {dirty_ratio:.2f})")
+            shaded_lines.append(ret)
 
     if debug:
         for i, line_bb in enumerate(shaded_lines):
@@ -266,7 +277,7 @@ def process(input_path: str, input_bbs: str, debug: bool = False):
 if __name__ == '__main__':
     arg_parser = argparse.ArgumentParser(description="Analyze image for zebra lines.")
     arg_parser.add_argument("--input_path", type=str, help="Path to the input image and bbs is expected near by with _detection.png.bbs.json.")
-    arg_parser.add_argument("--debug", type=bool, default=False, help="Enable debug mode.", required=False)
+    arg_parser.add_argument("--debug", action='store_true', default=False, help="Enable debug mode.", required=False)
 
     args = arg_parser.parse_args()
 
