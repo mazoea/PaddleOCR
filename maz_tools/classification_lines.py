@@ -247,7 +247,7 @@ def process(input_path: str, input_bbs: str, debug: bool = False, _not_used=None
         if debug:
             cv2.imwrite("d:/tmp/gap_roi.png", line_img)
 
-        ret, dirty_ratio = line_process(img,  line_bbs)
+        ret, dirty_ratio = line_process(img,  line_bbs, debug)
         if ret:
             if debug:
                 _logger.debug(f"Line {i} classified as shaded line (dirty ratio: {dirty_ratio:.2f})")

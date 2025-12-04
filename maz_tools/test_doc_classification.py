@@ -3,8 +3,10 @@ import tqdm
 import glob
 import shutil
 import os
+import json
 
 from classification_lines import process
+#from cut_out_lines import process
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run evaluation on documents sets.")
@@ -19,6 +21,9 @@ if __name__ == "__main__":
     cnt_wrong = 0
     cnt_total = 0
     error = 0
+
+    dataset = []
+    dataset_path = "d:/tmp/dataset-lines/"
     # go through png files in th folder
     files = glob.glob(f"{args.doc_sets}/*.png")
     for f in tqdm.tqdm(files):
@@ -32,7 +37,9 @@ if __name__ == "__main__":
         if not os.path.exists(f) and not os.path.exists(input_bbs):
             print(f"Error: Input files '{f}' does not exist!")
             continue
-        res = process(f, input_bbs)
+        #res, dataset_doc = process(f, input_bbs, False, dataset_path)
+        #dataset.extend(dataset_doc)
+        res = process(f, input_bbs, False, dataset_path)
         cnt_total += 1
         if res["zebra_doc"]:
             if args.is_zebra:
@@ -58,3 +65,5 @@ if __name__ == "__main__":
     print(f"Total: {cnt_total}, Correct: {cnt_correct}, Wrong: {cnt_wrong}, Error: {error}")
     accuracy = cnt_correct / cnt_total if cnt_total > 0 else 0.0
     print(f"Accuracy: {accuracy:.4f}")
+
+    #json.dump(dataset, open(f"{dataset_path}/dataset_lines.json", "w", encoding="utf-8"), indent=2)
