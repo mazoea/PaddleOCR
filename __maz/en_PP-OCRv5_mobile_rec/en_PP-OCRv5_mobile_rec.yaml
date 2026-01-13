@@ -81,7 +81,7 @@ Train:
     ratio: [0., 1.]
     max_limit_per_dataset:
       "*": 130000
-    static_mode_save_final: d:/projects/dataset-words-OCR/all-paddle.TRAIN.pkl
+    #static_mode_save_final: d:/projects/dataset-words-OCR/all-paddle.TRAIN.pkl
     ext_op_transform_idx: 1
     label_file_list:
     - ./train_data/train_list.txt
@@ -106,13 +106,13 @@ Train:
         - label_gtc
         - length
         - valid_ratio
-  sampler:
-    name: MultiScaleSampler
-    scales: [[320, 32], [320, 48], [320, 64]]
-    first_bs: &bs 128
-    fix_bs: false
-    divided_factor: [8, 16] # w, h
-    is_training: True
+  #sampler:
+  #  name: MultiScaleSampler
+  #  scales: [[320, 32], [320, 48], [320, 64]]
+  #  first_bs: &bs 128
+  #  fix_bs: false
+  #  divided_factor: [8, 16] # w, h
+  #  is_training: True
   loader:
     # batch_size_per_card: *bs
     # shuffle: true
@@ -128,7 +128,7 @@ Eval:
     data_dir_exclude:
       - __woec.ICDAR2013.json.PAD.FILTERED.json
     ratio: [0.0, 1.0]
-    static_mode_save_final: d:/projects/dataset-words-OCR/all-paddle.EVAL.pkl
+    #static_mode_save_final: d:/projects/dataset-words-OCR/all-paddle.EVAL.pkl
     max_limit_per_dataset:
       "*": 2500
       "__woec.IBedits.json.PAD.FILTERED.json": 10000
