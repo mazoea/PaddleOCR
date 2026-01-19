@@ -200,12 +200,13 @@ class MazDataset:
                     # Check if it's a valid row (has string label)
                     if isinstance(ext_row[0], str):
                         ext_gt, ext_buf, ext_score, ext_img_id = ext_row
-                        data["ext_data"].append({
-                            "image": ext_buf,
-                            "label": ext_gt,
-                            "img_path": ext_img_id
-                        })
-                        ext_indices.append(rand_idx)
+                        if ' ' not in ext_gt:
+                            data["ext_data"].append({
+                                "image": ext_buf,
+                                "label": ext_gt,
+                                "img_path": ext_img_id
+                            })
+                            ext_indices.append(rand_idx)
                 attempts += 1
         
         return self.transform(data, self.ops)
