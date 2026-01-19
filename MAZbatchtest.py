@@ -92,7 +92,7 @@ def run_eval(model, config):
         "python", "tools/eval.py",
         "-c", f"./__maz/eval/{config}",
         "-o", f"Global.checkpoints={model}",
-#        "Global.use_gpu=false"
+        #"Global.use_gpu=false"
     ]
     try:
         env = os.environ.copy()

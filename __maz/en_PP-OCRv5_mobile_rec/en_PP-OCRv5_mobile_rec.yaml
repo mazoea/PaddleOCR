@@ -2,10 +2,10 @@ Global:
   model_name: en_PP-OCRv5_mobile_rec # To use static model for inference.
   debug: false
   use_gpu: true
-  epoch_num: 200
+  epoch_num: 20
   log_smooth_window: 20
   print_batch_step: 10
-  save_model_dir: ./output/v5_en_mobile_2025_12_31
+  save_model_dir: ./output/v5_en_mobile_2026_1_14
   save_epoch_step: 1
   eval_batch_step: [0, 150]
   cal_metric_during_train: true
@@ -78,6 +78,7 @@ Train:
   dataset:
     name: MazDataset
     data_dir: d:/projects/dataset-words-OCR/
+    ext_data_num: 2
     ratio: [0., 1.]
     max_limit_per_dataset:
       "*": 130000
@@ -89,6 +90,12 @@ Train:
     - DecodeImage:
         img_mode: BGR
         channel_first: false
+    - MazCombineWordImages:  # MUST be before encoding/resizing
+        prob: 0.5
+        min_words: 2
+        max_words: 4
+        space_range: [10, 20]
+        pad_color: 255
     - RecConAug:
         prob: 0.15
         ext_data_num: 2
@@ -125,6 +132,7 @@ Eval:
   dataset:
     name: MazDataset
     data_dir: d:/projects/dataset-words-OCR/
+    ext_data_num: 2
     data_dir_exclude:
       - __woec.ICDAR2013.json.PAD.FILTERED.json
     ratio: [0.0, 1.0]
@@ -136,6 +144,12 @@ Eval:
     - DecodeImage:
         img_mode: BGR
         channel_first: false
+    - MazCombineWordImages:  # MUST be before encoding/resizing
+        prob: 0.5
+        min_words: 2
+        max_words: 4
+        space_range: [10, 20]
+        pad_color: 255
     - MultiLabelEncode:
         gtc_encode: NRTRLabelEncode
     - RecResizeImg:

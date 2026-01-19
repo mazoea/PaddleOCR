@@ -64,6 +64,12 @@ from .drrg_targets import DRRGTargets
 from .latex_ocr_aug import *
 from .unimernet_aug import *
 
+# Import custom operators from maz module
+try:
+    from maz import CombineWordImages as MazCombineWordImages
+except ImportError:
+    pass  # maz module may not be available in all environments
+
 
 def transform(data, ops=None):
     """transform"""
