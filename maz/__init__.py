@@ -191,7 +191,7 @@ class MazDataset:
         if self.ext_data_num > 0 and len(self.data) > 1:
             # Get random indices different from current sample
             ext_indices = []
-            max_attempts = self.ext_data_num * 3  # Try up to 3x to get enough samples
+            max_attempts = self.ext_data_num * 5  # Try up to 5x to get enough samples
             attempts = 0
             while len(ext_indices) < self.ext_data_num and attempts < max_attempts:
                 rand_idx = random.randint(0, len(self.data) - 1)
@@ -200,13 +200,13 @@ class MazDataset:
                     # Check if it's a valid row (has string label)
                     if isinstance(ext_row[0], str):
                         ext_gt, ext_buf, ext_score, ext_img_id = ext_row
-                        if ' ' not in ext_gt:
-                            data["ext_data"].append({
-                                "image": ext_buf,
-                                "label": ext_gt,
-                                "img_path": ext_img_id
-                            })
-                            ext_indices.append(rand_idx)
+                        #if ' ' not in ext_gt:
+                        data["ext_data"].append({
+                            "image": ext_buf,
+                            "label": ext_gt,
+                            "img_path": ext_img_id
+                        })
+                        ext_indices.append(rand_idx)
                 attempts += 1
         
         return self.transform(data, self.ops)

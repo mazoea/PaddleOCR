@@ -5,6 +5,7 @@
 | ICDAR2013        | 0.9375                 | 0.9518                  |
 | IBSimple         | 0.9894                 | 0.9676                  |
 | IBedits          | 0.9719                 | 0.8631                  |
+| IBdiffs          | 0.0                    | 0.5895                  |
 | Invoices         | 0.9941                 | 0.9859                  |
 | funSD            | 0.9761                 | 0.9642                  |
 | xFund            | 0.9882                 | 0.9792                  |
@@ -32,6 +33,7 @@ env= {
         "eval.ICDAR2013.yml",
         "eval.IBSimple.yml",
         "eval.IBedits.yml",
+        "eval.IBdiffs.yml",
         "eval.Invoices.yml",
         "eval.funSD.yml",
         "eval.xFund.yml",
