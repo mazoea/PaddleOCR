@@ -53,15 +53,31 @@ def detect_rot(img_path, ocr_model_dir, ts_model_dir):
                 if angle == 0:
                     rotated_img = img
                 else:
-                    # rotate image
-                    center = (img.shape[1] // 2, img.shape[0] // 2)
-                    rot_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
-                    rotated_img = cv2.warpAffine(img, rot_matrix, (img.shape[1], img.shape[0]), flags=cv2.INTER_LINEAR)
+                    # rotate image - swap dimensions for 90/270 to prevent cropping
+                    h_img, w_img = img.shape[:2]
+                    
+                    # For 90 and 270 degrees, swap width and height
+                    if angle in [90, 270]:
+                        out_w, out_h = h_img, w_img  # Swap dimensions
+                        # Adjust rotation center for swapped dimensions
+                        center = (w_img // 2, h_img // 2)
+                        rot_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+                        # Adjust translation to center the rotated content
+                        rot_matrix[0, 2] += (out_w - w_img) / 2
+                        rot_matrix[1, 2] += (out_h - h_img) / 2
+                    else:
+                        out_w, out_h = w_img, h_img  # Keep original dimensions for 180
+                        center = (w_img // 2, h_img // 2)
+                        rot_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+                    
+                    rotated_img = cv2.warpAffine(img, rot_matrix, (out_w, out_h), flags=cv2.INTER_LINEAR)
 
-                start_x = int(w * (1 - scale) / 2)
-                start_y = int(h * (1 - scale) / 2)
-                end_x = int(w * (1 + scale) / 2)
-                end_y = int(h * (1 + scale) / 2)
+                # Use rotated image dimensions for cropping
+                rot_h, rot_w = rotated_img.shape[:2]
+                start_x = int(rot_w * (1 - scale) / 2)
+                start_y = int(rot_h * (1 - scale) / 2)
+                end_x = int(rot_w * (1 + scale) / 2)
+                end_y = int(rot_h * (1 + scale) / 2)
                 crop_img = rotated_img[start_y:end_y, start_x:end_x]
 
                 # check if in cropped image is more then 10% of black pixels
@@ -76,7 +92,7 @@ def detect_rot(img_path, ocr_model_dir, ts_model_dir):
                 # detect text in the cropped image
                 confs = []
                 ts_res = text_detector.predict(crop_img)
-                print(f"Angle {angle} degrees, detected {len(ts_res[0]['dt_polys'])} text boxes")
+                #print(f"Angle {angle} degrees, detected {len(ts_res[0]['dt_polys'])} text boxes")
                 for i, bbox in enumerate(ts_res[0]["dt_polys"], 1):
                     box = np.reshape(np.array(bbox), [-1, 1, 2]).astype(np.int64)
                     # crop the detected text region
@@ -88,7 +104,7 @@ def detect_rot(img_path, ocr_model_dir, ts_model_dir):
                     # recognize text in the cropped region
                     ocr_res = text_ocr.predict(word_img, batch_size=1, return_word_box=True)
                     for res in ocr_res:
-                        print(f"{res.get('rec_text', 'no_text')[0]}, {res.get('rec_score', 0.0)}")
+                        #print(f"{res.get('rec_text', 'no_text')[0]}, {res.get('rec_score', 0.0)}")
                         conf = res.get('rec_score', 0.0)
                         text = res.get('rec_text', ' ')[0]
                         if len(text) < 3 and conf < 0.5:
@@ -106,33 +122,38 @@ def detect_rot(img_path, ocr_model_dir, ts_model_dir):
                         # limit to first 10 words
                         break
                 all_confs.append(confs)
-                print("-------")
+                #print("-------")
 
+            # check if there are three zeros confidences, then continue to bigger image
+            zero_conf_counts = sum(1 for confs in all_confs if len(confs) == 0 or sum(confs) == 0.)
+            if scale != 1. and zero_conf_counts >= 3:
+                #print(f"Scale {scale:.2f} - too many zero confidence detections, trying larger area...")
+                continue
             # heigh average confidence will give the rotation, height will be according to the number of detected words
             avg_confs = []
-            words_counts = []
+            sums_confs = []
             for confs in all_confs:
                 if len(confs) == 0:
                     avg_confs.append(0.0)
                 else:
                     avg_confs.append(sum(confs) / len(confs))
-                # count the highest word counts
-                words_counts.append(len(confs))
-            print(avg_confs)
-            max_word_counts = max(max(words_counts),1)
-            print(max_word_counts)
-            avg_confs = [(avg / max_word_counts) * len(all_confs[i]) for i, avg in enumerate(avg_confs)]
+                # sum of confidences
+                sums_confs.append(sum(confs))
+            #print(avg_confs)
+            max_word_confs = max(max(sums_confs),1)
+            #print(max_word_confs)
+            avg_confs = [(avg / max_word_confs) * sum(all_confs[i]) for i, avg in enumerate(avg_confs)]
             best_angle_idx = np.argmax(avg_confs)
             best_angle = [0, 90, 180, 270][best_angle_idx]
-            print(avg_confs)
-            print(f"Detected rotation: {best_angle} degrees with average confidence {avg_confs[best_angle_idx]:.4f}")
+            #print(avg_confs)
+            #print(f"Detected rotation: {best_angle} degrees with average confidence {avg_confs[best_angle_idx]:.4f}")
             return best_angle, time.time() - s
         except ValueError as ve:
             if str(ve) == "no_black":
-                print(f"Scale {scale:.2f} - no black pixels detected, trying larger area...")
+                #print(f"Scale {scale:.2f} - no black pixels detected, trying larger area...")
                 continue
             else:
-                print(f"Error during processing: {str(ve)}")
+                print(f"Error during processing: {str(ve)} {img_path}")
                 return -1
 
     return -1
