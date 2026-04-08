@@ -18,6 +18,7 @@ from __future__ import print_function
 
 import paddle
 from paddle import nn
+import logging
 
 
 class CTCLoss(nn.Layer):
@@ -25,6 +26,7 @@ class CTCLoss(nn.Layer):
         super(CTCLoss, self).__init__()
         self.loss_func = nn.CTCLoss(blank=0, reduction="none")
         self.use_focal_loss = use_focal_loss
+        logging.warning(f"Using focal loss for CTC: {self.use_focal_loss}")
 
     def forward(self, predicts, batch):
         if isinstance(predicts, (list, tuple)):

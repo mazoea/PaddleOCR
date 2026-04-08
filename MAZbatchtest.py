@@ -89,13 +89,14 @@ def parse_table_from_comment(script_path: str):
     }
 
 
-def run_eval(model, config):
+def run_eval(model, config, use_cpu=False):
     cmd = [
         "python", "tools/eval.py",
         "-c", f"./__maz/eval/{config}",
         "-o", f"Global.checkpoints={model}",
-        #"Global.use_gpu=false"
     ]
+    if use_cpu:
+        cmd.append("Global.use_gpu=false")
     try:
         env = os.environ.copy()
         env["GLOG_minloglevel"] = "2"
@@ -160,7 +161,16 @@ def main():
     parser.add_argument('--model1', type=str,
                         help='Path to second model (MODEL1)', default="./__maz/en_PP-OCRv3_rec_train/best_accuracy")
     parser.add_argument('--model2', type=str, required=True, help='Path to second model (MODEL2)')
+    parser.add_argument('--cpu', action='store_true', help='Run evaluation on CPU')
+    parser.add_argument('--log_file', type=str, default=None, help='Override log file path')
     args = parser.parse_args()
+
+    if args.log_file:
+        # reconfigure logger to use custom log file
+        for handler in _logger.handlers[:]:
+            _logger.removeHandler(handler)
+        setup_logger(args.log_file)
+
     _logger.warning(f"Starting evaluation with: {args}")
 
     baseline_d = parse_table_from_comment(__file__)
@@ -173,7 +183,7 @@ def main():
         # logging.warning(f"====")
         # run_eval(args.model1, config)
         s2 = time.time()
-        model2_acc = run_eval(args.model2, config)
+        model2_acc = run_eval(args.model2, config, use_cpu=args.cpu)
         took2 = time.time() - s2
 
         # based on the other, print out the result BEST, WORST, ...

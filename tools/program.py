@@ -73,6 +73,43 @@ class ArgsParser(ArgumentParser):
         return config
 
 
+def _expand_env_vars(obj):
+    """
+    Recursively expand ${VAR} environment variables in all string values.
+    Exits with an error if any variable cannot be resolved.
+    """
+    import re
+
+    _env_pattern = re.compile(r"\$\{([^}]+)\}")
+
+    def _expand_string(s):
+        def _replace(m):
+            var = m.group(1)
+            val = os.environ.get(var)
+            if val is None:
+                print(
+                    "\n"
+                    + "=" * 70
+                    + f"\n  ERROR: Environment variable '${{{var}}}' is not set!\n"
+                    + "  Please set it before running, e.g.:\n"
+                    + f"      set {var}=<value>\n"
+                    + "=" * 70
+                    + "\n"
+                )
+                sys.exit(1)
+            return val
+
+        return _env_pattern.sub(_replace, s)
+
+    if isinstance(obj, str):
+        return _expand_string(obj)
+    elif isinstance(obj, dict):
+        return {k: _expand_env_vars(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_expand_env_vars(item) for item in obj]
+    return obj
+
+
 def load_config(file_path):
     """
     Load config from yml/yaml file.
@@ -83,6 +120,7 @@ def load_config(file_path):
     _, ext = os.path.splitext(file_path)
     assert ext in [".yml", ".yaml"], "only support yaml files for now"
     config = yaml.load(open(file_path, "rb"), Loader=yaml.Loader)
+    config = _expand_env_vars(config)
     return config
 
 
@@ -299,6 +337,8 @@ def train(
         else len(train_dataloader)
     )
 
+    dbg = os.getenv("MAZOEA_DBG_TRAINING_INPUT", None)
+
     for epoch in range(start_epoch, epoch_num + 1):
         if train_dataloader.dataset.need_reset:
             train_dataloader = build_dataloader(
@@ -310,7 +350,18 @@ def train(
                 else len(train_dataloader)
             )
 
-        def dbg_dump(images_cpu, prefix):
+        dbg_max_per_epoch = 250
+        dbg_saved_this_epoch = 0
+        dbg_saved_train_this_epoch = 0
+        dbg_dir = None
+        if dbg and dist.get_rank() == 0:
+            dbg_dir = os.path.join(
+                save_model_dir,
+                f"debug_epoch_{epoch}",
+            )
+            os.makedirs(dbg_dir, exist_ok=True)
+
+        def dbg_dump(images_cpu, prefix, name_suffixes=None):
             """
             Fixed version of dbg_dump that correctly handles visualization of training data.
 
@@ -356,7 +407,10 @@ def train(
                         img = img[:, :, 0]
 
                     # Save image
-                    cv2.imwrite(f'{prefix}_{str(rand)}_{i}.png', img)
+                    suffix = ""
+                    if name_suffixes is not None and i < len(name_suffixes) and name_suffixes[i]:
+                        suffix = f"_{name_suffixes[i]}"
+                    cv2.imwrite(os.path.join(dbg_dir, f'{prefix}_{str(rand)}_{i}{suffix}.png'), img)
 
             elif images_cpu.ndim == 3:  # Batch of single-channel images (N, H, W)
                 for i, img in enumerate(images_cpu):
@@ -368,22 +422,172 @@ def train(
                     img = normalize_to_uint8(img)
 
                     # Save image (already in correct format for grayscale)
-                    cv2.imwrite(f'{prefix}_{str(rand)}_{i}.png', img)
+                    suffix = ""
+                    if name_suffixes is not None and i < len(name_suffixes) and name_suffixes[i]:
+                        suffix = f"_{name_suffixes[i]}"
+                    cv2.imwrite(os.path.join(dbg_dir, f'{prefix}_{str(rand)}_{i}{suffix}.png'), img)
 
             elif images_cpu.ndim == 2:  # Single image (H, W)
                 img = normalize_to_uint8(images_cpu)
-                cv2.imwrite(f'{prefix}_{str(rand)}_0.png', img)
+                cv2.imwrite(os.path.join(dbg_dir, f'{prefix}_{str(rand)}_0.png'), img)
 
             else:
                 #print(f"Warning: Unsupported tensor shape {images_cpu.shape} for {prefix}")
                 pass
+            return
+
+        def dbg_encode_label_for_filename(text):
+            enc = str(text)
+            enc = enc.replace("$", "~DOLLAR~")
+            enc = enc.replace("[", "~lbracket~")
+            enc = enc.replace("]", "~rbracket~")
+            enc = enc.replace(" ", "___")
+            enc = "".join(
+                ch if (ch.isalnum() or ch in ("-", "_", "~")) else "_"
+                for ch in enc
+            )
+            return f"LABEL_{enc[:80]}"
+
+        def dbg_decode_label_suffixes(labels_batch):
+            suffixes = []
+            try:
+                if not hasattr(post_process_class, "decode"):
+                    return suffixes
+                if labels_batch is None or len(labels_batch) < 2:
+                    return suffixes
+
+                labels = labels_batch[1]
+                if isinstance(labels, paddle.Tensor):
+                    labels = labels.numpy()
+
+                decoded_labels = post_process_class.decode(labels)
+                for item in decoded_labels:
+                    if isinstance(item, (tuple, list)) and len(item) >= 1:
+                        text = item[0]
+                    else:
+                        text = str(item)
+
+                    safe_text = dbg_encode_label_for_filename(text)
+                    suffixes.append(safe_text)
+            except Exception as e:
+                logger.info(f"Debug label decode failed for filename suffixes: {e}")
+                suffixes = []
+            return suffixes
+
+        def dbg_dump_rec(images_cpu, preds_out, labels_batch, n_to_dump):
+            if dbg_dir is None or n_to_dump <= 0:
+                return 0
+
+            def normalize_to_uint8(img):
+                img_min = img.min()
+                img_max = img.max()
+                if img_max > img_min:
+                    img = (img - img_min) / (img_max - img_min) * 255
+                else:
+                    img = np.zeros_like(img)
+                return img.astype(np.uint8)
+
+            # Decode recognition outputs to human-readable text when possible.
+            pred_texts = []
+            label_texts = []
+            label_for_decode = labels_batch[1]
+            if isinstance(label_for_decode, paddle.Tensor):
+                label_for_decode = label_for_decode.numpy()
+
+            # Decode ground-truth labels independently so records stay useful
+            # even when prediction decode fails.
+            try:
+                if hasattr(post_process_class, "decode"):
+                    gt_decoded = post_process_class.decode(label_for_decode)
+                    if isinstance(gt_decoded, list):
+                        label_texts = gt_decoded
+            except Exception as e:
+                logger.info(f"Debug label decode failed for records: {e}")
+
+            try:
+                if config["Loss"]["name"] in ["MultiLoss", "MultiLoss_v2"] and isinstance(preds_out, dict) and "ctc" in preds_out:
+                    decoded = post_process_class(preds_out["ctc"], label_for_decode)
+                else:
+                    decoded = post_process_class(preds_out, label_for_decode)
+
+                if isinstance(decoded, (tuple, list)) and len(decoded) >= 2:
+                    pred_texts = decoded[0] if isinstance(decoded[0], list) else []
+                    if not label_texts:
+                        label_texts = decoded[1] if isinstance(decoded[1], list) else []
+                elif isinstance(decoded, list):
+                    pred_texts = decoded
+            except Exception as e:
+                logger.info(f"Debug decode failed for recognition outputs: {e}")
+                # Keep debug dump best-effort even when decoding fails.
+                pred_texts = []
+
+            dumped = 0
+            batch_size = min(images_cpu.shape[0], n_to_dump)
+            for i in range(batch_size):
+                img = images_cpu[i]
+                if img.ndim == 3:
+                    img = np.transpose(img, (1, 2, 0))
+                img = normalize_to_uint8(img)
+                if img.ndim == 3 and img.shape[2] == 3:
+                    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                elif img.ndim == 3 and img.shape[2] == 1:
+                    img = img.squeeze(2)
+
+                pred_item = pred_texts[i] if i < len(pred_texts) else None
+                label_item = label_texts[i] if i < len(label_texts) else None
+
+                pred_text, pred_score = "", ""
+                if isinstance(pred_item, (tuple, list)) and len(pred_item) >= 2:
+                    pred_text, pred_score = pred_item[0], pred_item[1]
+                elif pred_item is not None:
+                    pred_text = str(pred_item)
+
+                label_text = ""
+                if isinstance(label_item, (tuple, list)) and len(label_item) >= 1:
+                    label_text = label_item[0]
+                elif label_item is not None:
+                    label_text = str(label_item)
+
+                safe_label = ""
+                if label_text:
+                    safe_label = dbg_encode_label_for_filename(label_text)
+
+                sample_id = dbg_saved_this_epoch + dumped
+                file_name = f"sample_{sample_id:03d}_step_{global_step:06d}"
+                if safe_label:
+                    file_name = f"{file_name}_{safe_label}"
+                image_file = os.path.join(dbg_dir, f"{file_name}.png")
+                cv2.imwrite(image_file, img)
+
+                with open(
+                    os.path.join(dbg_dir, "records.txt"),
+                    "a",
+                    encoding="utf-8",
+                ) as fout:
+                    nospace_eq = pred_text.replace(" ", "") == label_text.replace(" ", "")
+                    fout.write(
+                        f"step={global_step} match/NOSPACEmatch={str(pred_text==label_text).upper():>5s}/{str(nospace_eq).upper():>5s}    pred=[{pred_text}] label=[{label_text}] score={pred_score}  file={os.path.basename(image_file)}, \n"
+                    )
+                dumped += 1
+            return dumped
 
         for idx, batch in enumerate(train_dataloader):
-            # check if enviroment variable for debug is set
-            dbg = os.getenv("MAZOEA_DBG_TRAINING_INPUT", None)
-            if dbg and idx == 0:
+            # Keep dumping train inputs across batches until debug quota is reached.
+            if (
+                dbg
+                and dist.get_rank() == 0
+                and dbg_saved_train_this_epoch < dbg_max_per_epoch
+            ):
+                remaining_train = dbg_max_per_epoch - dbg_saved_train_this_epoch
                 dbg_imgs = batch[0].cpu().numpy()
-                dbg_dump(dbg_imgs, "train")
+                n_dump = min(dbg_imgs.shape[0], remaining_train)
+                dbg_name_suffixes = dbg_decode_label_suffixes(batch)
+                dbg_dump(
+                    dbg_imgs[:n_dump],
+                    "train",
+                    dbg_name_suffixes[:n_dump] if dbg_name_suffixes else None,
+                )
+                dbg_saved_train_this_epoch += n_dump
 
             model.train()
             profiler.add_profiler_step(profiler_options)
@@ -421,6 +625,12 @@ def train(
                     else:
                         preds = model(images)
                 preds = to_float32(preds)
+
+                if dbg and dist.get_rank() == 0 and dbg_saved_this_epoch < dbg_max_per_epoch:
+                    remaining = dbg_max_per_epoch - dbg_saved_this_epoch
+                    images_cpu = images.cpu().numpy()
+                    dbg_saved_this_epoch += dbg_dump_rec(images_cpu, preds, batch, remaining)
+
                 loss = loss_class(preds, batch)
                 avg_loss = loss["loss"]
                 scaled_avg_loss = scaler.scale(avg_loss)
@@ -445,8 +655,15 @@ def train(
                     preds = model(batch)
                 else:
                     preds = model(images)
-                if dbg:
-                    preds_cpu = preds['maps'].cpu().numpy()
+
+                if dbg and dist.get_rank() == 0 and dbg_saved_this_epoch < dbg_max_per_epoch:
+                    remaining = dbg_max_per_epoch - dbg_saved_this_epoch
+                    images_cpu = images.cpu().numpy()
+                    dbg_saved_this_epoch += dbg_dump_rec(images_cpu, preds, batch, remaining)
+
+                # Keep old detection-style debug outputs for compatible branches.
+                if dbg and isinstance(preds, dict) and "maps" in preds and len(batch) >= 5:
+                    preds_cpu = preds["maps"].cpu().numpy()
                     dbg_dump(preds_cpu, "preds")
                     label_threshold_map = batch[1].cpu().numpy()
                     dbg_dump(label_threshold_map, "label_threshold_map")
@@ -916,7 +1133,9 @@ def preprocess(is_train=False):
     log_level = logging.DEBUG
     if is_train:
         # save_config
-        save_model_dir = config["Global"]["save_model_dir"]
+        run_stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        save_model_dir = os.path.join(config["Global"]["save_model_dir"], run_stamp)
+        config["Global"]["save_model_dir"] = save_model_dir
         os.makedirs(save_model_dir, exist_ok=True)
         with open(os.path.join(save_model_dir, "config.yml"), "w") as f:
             yaml.dump(dict(config), f, default_flow_style=False, sort_keys=False)

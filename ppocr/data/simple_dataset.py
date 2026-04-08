@@ -83,6 +83,7 @@ class SimpleDataSet(Dataset):
         return file_name
 
     def get_ext_data(self):
+        raise NotImplementedError("MAZ not expecting!!!")
         ext_data_num = 0
         for op in self.ops:
             if hasattr(op, "ext_data_num"):
