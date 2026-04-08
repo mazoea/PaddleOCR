@@ -1,0 +1,3 @@
+[submodule "maz"]
+	path = maz
+	url = git@github.com:mazoea/te-train-pp.git
