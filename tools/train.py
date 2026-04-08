@@ -50,6 +50,20 @@ def main(config, device, logger, vdl_writer, seed):
 
     global_config = config["Global"]
 
+    # validate pretrained_model exists before slow dataset loading
+    pretrained_model = global_config.get("pretrained_model")
+    if pretrained_model:
+        pm_path = pretrained_model
+        if not pm_path.endswith(".pdparams"):
+            pm_path = pm_path + ".pdparams"
+        if not os.path.exists(pm_path):
+            logger.error(
+                "Global.pretrained_model file does not exist: %s (resolved: %s)",
+                pretrained_model,
+                os.path.abspath(pm_path),
+            )
+            sys.exit(1)
+
     # build dataloader
     set_signal_handlers()
     train_dataloader = build_dataloader(config, "Train", device, logger, seed)
