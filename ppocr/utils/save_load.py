@@ -19,7 +19,6 @@ from __future__ import print_function
 import errno
 import os
 import pickle
-import sys
 import json
 import shutil
 from packaging import version
@@ -164,16 +163,6 @@ def load_model(config, model, optimizer=None, model_type="det"):
                 best_model_dict["start_epoch"] = states_dict["epoch"] + 1
         logger.critical("resume from {}".format(checkpoints))
     elif pretrained_model:
-        pm_path = pretrained_model
-        if not pm_path.endswith(".pdparams"):
-            pm_path = pm_path + ".pdparams"
-        if not os.path.exists(pm_path):
-            logger.error(
-                "Global.pretrained_model file does not exist: %s (resolved to: %s)",
-                pretrained_model,
-                os.path.abspath(pm_path),
-            )
-            sys.exit(1)
         is_float16 = load_pretrained_params(model, pretrained_model)
     else:
         logger.info("train from scratch")
