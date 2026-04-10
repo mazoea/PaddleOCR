@@ -20,6 +20,7 @@ import os
 import sys
 import json
 from collections import defaultdict
+from pathlib import Path
 
 __dir__ = os.path.dirname(os.path.abspath(__file__))
 
@@ -33,6 +34,54 @@ from ppocr.postprocess import build_post_process
 from ppocr.metrics import build_metric
 from ppocr.utils.save_load import load_model
 import tools.program as program
+
+
+def write_eval_diffs(metric: dict, config: dict, checkpoint: str | None = None) -> None:
+    """Write ``eval.diffs.*.json`` for the current evaluation run.
+
+    Expects ``metric["diffs"]`` to contain ``(pred, target, pred_conf)``
+    tuples.  After writing, ``diffs`` and ``diffs-count`` keys are removed
+    from *metric* so callers can continue using it.
+
+    *checkpoint* is stored in the JSON; when ``None`` it falls back to
+    ``config.get("checkpoints")``.  The checkpoint name used in the
+    filename is derived from the path (second segment of
+    ``"dir/name/file"`` or the last path component).
+    """
+    if "diffs" not in metric:
+        return
+
+    dataset_name = os.path.basename(
+        config["Eval"]["dataset"]["data_dir"]
+    ).replace(".PAD.FILTERED.json", "")
+
+    ckpt = checkpoint or config.get("checkpoints", "")
+    parts = ckpt.replace("\\", "/").split("/")
+    checkpoint_name = parts[1] if len(parts) == 3 else Path(ckpt).name or "UNK"
+
+    cnter: dict[str, int] = defaultdict(int)
+    for pred, target, pred_conf in metric["diffs"]:
+        if pred != target:
+            conf = float(pred_conf) if not isinstance(pred_conf, float) else pred_conf
+            k = f"{pred} -> {target} [{conf:5.2f}]"
+            cnter[k] += 1
+
+    # Ensure diffs contain only JSON-serializable types (numpy floats → float).
+    metric["diffs"] = [(p, t, float(c)) for p, t, c in metric["diffs"]]
+    metric["diffs-count"] = sorted(cnter.items(), key=lambda x: x[1], reverse=True)
+    metric["checkpoint"] = ckpt
+
+    output_dir = os.environ.get("EVAL_OUTPUT_DIR", "inference_results")
+    eval_file = os.path.join(
+        output_dir, f"eval.diffs.{checkpoint_name}__{dataset_name}.json"
+    )
+    os.makedirs(os.path.dirname(eval_file), exist_ok=True)
+    with open(eval_file, "w", encoding="utf-8") as fout:
+        json.dump(metric, fout, indent=4, ensure_ascii=True)
+
+    del metric["checkpoint"]
+    del metric["diffs"]
+    del metric["diffs-count"]
 
 
 def main():
@@ -176,29 +225,7 @@ def main():
         silent=os.environ.get("EVAL_VERBOSE", "0") == "0",
     )
 
-    if "diffs" in metric:
-        dataset_name = os.path.basename(config['Eval']['dataset']['data_dir']).replace(".PAD.FILTERED.json", "")
-        checkpoints = config.get("checkpoints", "").split("/")
-        checkpoint_name = "UNK"
-        if len(checkpoints) == 3:
-            checkpoint_name = checkpoints[1]
-        # count diffs
-        cnter = defaultdict(int)
-        for pred, target, pred_conf in metric["diffs"]:
-            if pred != target:
-                k = f"{pred} -> {target} [{pred_conf:5.2f}]"
-                cnter[k] += 1
-        # sort by count
-        metric["diffs-count"] = sorted(cnter.items(), key=lambda x: x[1], reverse=True)
-        output_dir = os.environ.get("EVAL_OUTPUT_DIR", "inference_results")
-        eval_file_str = os.path.join(output_dir, f'eval.diffs.{checkpoint_name}__{dataset_name}.json')
-        os.makedirs(os.path.dirname(eval_file_str), exist_ok=True)
-        metric["checkpoint"] = global_config.get("checkpoints")
-        with open(eval_file_str, 'w', encoding="utf-8") as fout:
-            json.dump(metric, fout, indent=4, ensure_ascii=True)
-        del metric["checkpoint"]
-        del metric["diffs"]
-        del metric["diffs-count"]
+    write_eval_diffs(metric, config)
 
     logger.critical(f"metric eval *************** {config['Eval']['dataset']['data_dir']}")
     for k, v in metric.items():
