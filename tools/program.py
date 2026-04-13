@@ -975,7 +975,6 @@ def eval(
         max_iter = (
             len(valid_dataloader) - 1
             if platform.system() == "Windows"
-            and getattr(valid_dataloader, "num_workers", 0) > 0
             else len(valid_dataloader)
         )
         sum_images = 0
