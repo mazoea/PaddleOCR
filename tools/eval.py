@@ -35,6 +35,18 @@ from ppocr.metrics import build_metric
 from ppocr.utils.save_load import load_model
 import tools.program as program
 
+# Optional rotator-AUC pass; all logic lives in maz.  Import guarded so a
+# broken/missing maz module never masks a successful acc eval.
+try:
+    from maz.tools.rotator_eval_pass import run_rotator_eval
+    _ROTATOR_AVAILABLE = True
+except Exception as _rot_import_err:
+    print(
+        f"WARNING: rotator pass unavailable, will be skipped: "
+        f"{type(_rot_import_err).__name__}: {_rot_import_err}"
+    )
+    _ROTATOR_AVAILABLE = False
+
 
 def write_eval_diffs(metric: dict, config: dict, checkpoint: str | None = None) -> None:
     """Write ``eval.diffs.*.json`` for the current evaluation run.
@@ -231,6 +243,13 @@ def main():
     for k, v in metric.items():
         msg = "{}:{}".format(k, v)
         logger.info(msg) if k != "acc" else logger.critical(msg)
+
+    # No-op unless Eval.rotator.enabled is set.  All logic lives in maz.
+    # Guarded by import success so we don't try to call a missing function.
+    if _ROTATOR_AVAILABLE:
+        model.eval()
+        run_rotator_eval(config, lambda x: model(x), valid_dataloader,
+                         post_process_class, config.get("checkpoints"), logger)
 
 
 if __name__ == "__main__":
